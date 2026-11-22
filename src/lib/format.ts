@@ -54,6 +54,11 @@ export function amountToInput(value: number): string {
   return value.toFixed(2).replace(/\.00$/, '').replace('.', ',')
 }
 
+/** Zinssatz für Eingabefelder: 19.9 → „19,9“, 0 → „0“ */
+export function rateToInput(value: number): string {
+  return String(Math.round(value * 100) / 100).replace('.', ',')
+}
+
 export const MONTHS = [
   'Januar',
   'Februar',

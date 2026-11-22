@@ -1,4 +1,4 @@
-import type { AppData, BillingCycle, Debt, Expense, IncomeItem, OneOff } from '../types'
+import type { AppData, BillingCycle, Debt, DebtPlan, Expense, IncomeItem, LoanInfo, OneOff } from '../types'
 import { CATEGORY_IDS, getCategory } from './categories'
 import { createEmptyData } from './demo'
 import { createId } from './id'
@@ -18,6 +18,29 @@ function toNumber(value: unknown, fallback: number): number {
 
 function clampInt(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)))
+}
+
+const DATE_KEY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+
+/** Zinssatz in Prozent (0–100), sonst undefined */
+function cleanRate(value: unknown): number | undefined {
+  const rate = toNumber(value, NaN)
+  return Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : undefined
+}
+
+function sanitizeLoan(raw: unknown): LoanInfo | undefined {
+  if (!isRecord(raw)) return undefined
+  const balance = Math.max(0, toNumber(raw.balance, 0))
+  if (typeof raw.balanceDate !== 'string' || !DATE_KEY.test(raw.balanceDate)) return undefined
+  const loan: LoanInfo = {
+    balance,
+    balanceDate: raw.balanceDate,
+    original: Math.max(balance, toNumber(raw.original, balance)),
+  }
+  const rate = cleanRate(raw.interestRate)
+  if (rate !== undefined) loan.interestRate = rate
+  if (raw.cancelWhenPaid === true) loan.cancelWhenPaid = true
+  return loan
 }
 
 function sanitizeExpense(raw: unknown): Expense | null {
@@ -42,6 +65,8 @@ function sanitizeExpense(raw: unknown): Expense | null {
   if (typeof raw.endMonth === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(raw.endMonth)) {
     expense.endMonth = raw.endMonth
   }
+  const loan = sanitizeLoan(raw.loan)
+  if (loan) expense.loan = loan
   if (billingCycle !== 'monthly') {
     expense.billingMonth = clampInt(toNumber(raw.billingMonth, 1), 1, 12)
   }
@@ -92,9 +117,20 @@ function sanitizeDebt(raw: unknown): Debt | null {
     amount,
     original: Math.max(amount, toNumber(raw.original, amount)),
   }
+  const rate = cleanRate(raw.interestRate)
+  if (rate !== undefined) debt.interestRate = rate
+  if (raw.cancelWhenPaid === true) debt.cancelWhenPaid = true
   const note = cleanNote(raw.note)
   if (note) debt.note = note
   return debt
+}
+
+function sanitizeDebtPlan(raw: unknown): DebtPlan {
+  const plan = isRecord(raw) ? raw : {}
+  return {
+    strategy: plan.strategy === 'snowball' ? 'snowball' : 'avalanche',
+    extra: Math.max(0, toNumber(plan.extra, 0)),
+  }
 }
 
 /** Validiert unbekannte Daten (localStorage oder Import) und wirft bei ungültigem Format. */
@@ -118,7 +154,7 @@ export function parseAppData(raw: unknown): AppData {
       ? raw.oneOffs.map(sanitizeOneOff).filter((o): o is OneOff => o !== null)
       : [],
     debts: Array.isArray(raw.debts) ? raw.debts.map(sanitizeDebt).filter((d): d is Debt => d !== null) : [],
-    settings: { currency },
+    settings: { currency, debtPlan: sanitizeDebtPlan(settings.debtPlan) },
   }
 }
 

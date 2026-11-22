@@ -9,18 +9,39 @@ Minimalistische, mobile-first Progressive Web App, um das **monatliche Einkommen
 
 ## Funktionen
 
+Zwei Bereiche, oben umschaltbar: **Budget** und **Schulden**.
+
+### Budget
+
 | Bereich | Beschreibung |
 | --- | --- |
-| **Übersicht** | Frei verfügbares Budget (Netto – Fixkosten), Nettoeinkommen, Fixkosten gesamt, Fixkosten-Quote mit Fortschrittsbalken |
-| **Noch offen diesen Monat** | Tatsächliche Abbuchungen des laufenden Monats ab heute (inkl. quartalsweiser/jährlicher Posten im Fälligkeitsmonat) |
-| **Kategorien** | Gestapelter Balken + Legende; Antippen filtert die Liste |
-| **Fixkostenliste** | Gruppiert nach Kategorie oder sortiert nach Datum/Betrag; Schalter zum Pausieren („Was wäre wenn“) |
-| **Laufzeiten** | Optionales Ende (letzte Zahlung oder Anzahl verbleibender Raten) für Kredite, Ratenkäufe, BAföG … – mit Restbetrag; abbezahlte Posten zählen automatisch nicht mehr |
-| **Ausblick** | Diagramm des frei verfügbaren Budgets pro Monat für die kommenden Jahre; Monat antippen → Betrag, Differenz zu heute und was bis dahin abbezahlt ist |
-| **Datensicherheit** | „Rückgängig“ nach Löschen/Zurücksetzen/Import, automatische Sicherheitskopie vor großen Änderungen, Backup mit einem Tipp in „Downloads“, Erinnerung nach 30 Tagen |
-| **Android** | Installierbar mit eigenem Button, Zurück-Taste schließt Fenster, Sheets nach unten wischen, App-Verknüpfung „Hinzufügen“ (App-Symbol lange drücken), Privatsphäre-Modus (Beträge verbergen) |
-| **Schnell hinzufügen** | `+`-Button mit Vorlagen (Miete, Kredit, BAföG, Strom, Internet, Versicherung, Gym) |
-| **Einstellungen** | Währungssymbol, JSON-Export/-Import, Demo-Daten, Zurücksetzen |
+| **Übersicht** | Frei verfügbares Budget (Netto – Fixkosten), „Übrig im Monat“ nach Einmalausgaben, Fixkosten-Quote |
+| **Noch offen diesen Monat** | Abbuchungen ab heute, Vorschau auf den nächsten Monat |
+| **Kategorien** | Verteilung als Balken; Antippen filtert die Liste |
+| **Ausblick** | Was pro Monat übrig bleibt – mit Stufen, wenn Kredite, Raten oder Kreditkarten abbezahlt sind |
+| **Fixkosten** | Sortierbar, Schalter für „Was wäre wenn“, optionale Laufzeit (letzte Rate oder Anzahl Raten) |
+| **Einmalig** | Ausgaben nur für einen Monat (z. B. „Geld an Mama“), fließen in „Übrig“ und Ausblick ein |
+| **Vorlagen** | Miete, Strom, Internet, PKV, Kredit, Klarna, Kreditkarte, BAföG … mit kurzen Hinweisen |
+
+### Schulden
+
+| Bereich | Beschreibung |
+| --- | --- |
+| **Gesamtübersicht** | Schulden gesamt, Raten und Zinsen pro Monat, bereits getilgt, Datum „schuldenfrei“ |
+| **Kredite & Kreditkarten** | Fixkosten mit optionaler Restschuld + Zinssatz – die Restschuld sinkt automatisch mit jeder Rate; das Budget weiß, wann die Rate wegfällt |
+| **Schulden ohne Rate** | z. B. Familie oder Dispo, optional mit Zinssatz; Rückzahlungen erfassen (optional als Einmalausgabe) |
+| **Tilgungsplan** | Lawine (höchster Zins zuerst) oder Schneeball (kleinste Schuld zuerst), Extra-Betrag pro Monat, frei gewordene Raten fließen in die nächste Schuld; zeigt Reihenfolge, Zinsen und Ersparnis |
+| **Sondertilgung** | Direkt am Kredit erfassen; Hinweis, wohin sie am meisten bringt |
+| **Umschuldung** | Ausgewählte Schulden mit neuem Zinssatz und Laufzeit durchrechnen: neue Rate, Zinsen, Ersparnis |
+| **Kündigen** | Erinnerung, wenn eine markierte Kreditkarte / ein Dispo abbezahlt ist |
+| **Warnungen** | Wenn eine Rate nicht einmal die Zinsen deckt |
+
+### Daten & App
+
+| Bereich | Beschreibung |
+| --- | --- |
+| **Datensicherheit** | „Rückgängig“ nach Löschen/Zurücksetzen/Import, automatische Sicherheitskopie, Backup mit einem Tipp in „Downloads“, Erinnerung nach 30 Tagen |
+| **Android** | Installierbar, Zurück-Taste schließt Fenster, Sheets nach unten wischen, App-Verknüpfungen, Privatsphäre-Modus |
 
 Quartalsweise und jährliche Beträge werden in der Übersicht automatisch auf einen Monatswert normalisiert (`/3` bzw. `/12`).
 
@@ -42,7 +63,8 @@ Stack: Vite · React 19 · TypeScript (strict) · Tailwind CSS v4 · Lucide Icon
 src/
   types.ts               Datenmodell (Expense, IncomeItem, AppData)
   lib/
-    calc.ts              Normalisierung, Summen, Monats-Zeitleiste, Kategorien-Anteile
+    calc.ts              Normalisierung, Summen, Monats-Zeitleiste, Kategorien-Anteile, Ausblick
+    debts.ts             Restschuld-Fortschreibung, Schuldenübersicht, Tilgungsplan, Umschuldung
     storage.ts           localStorage, Validierung, JSON-Export/-Import
     categories.ts        Kategorien (Farbe, Icon), Akzentfarben
     format.ts            Formatierung (de-DE), Betrags-Parser, Labels
@@ -53,8 +75,9 @@ src/
     useMeta.ts           Backup-Datum, Hinweise, Privatsphäre-Modus
     useInstallPrompt.ts  „App installieren“-Button (Android/Chrome)
     useBackClose.ts      Android-Zurück-Taste schließt Sheets
-  components/            HeroCard, UpcomingBar, CategoryBreakdown, ForecastCard, ExpenseList/-Row,
-                         ExpenseSheet, IncomeSheet, SettingsSheet, BottomSheet, Toast, NoticeCard, Toggle
+  components/            Budget: HeroCard, UpcomingBar, CategoryBreakdown, ForecastCard, EntriesSection …
+                         Schulden: DebtsView, DebtPlanCard, ConsolidationCard
+                         Formulare: EntrySheet, ExpenseForm (+ LoanFields), OneOffForm, DebtForm, RepaymentBox
 public/
   manifest.webmanifest   PWA-Manifest (inkl. Verknüpfung & Screenshots für den Installationsdialog)
   sw.js                  Offline-Service-Worker

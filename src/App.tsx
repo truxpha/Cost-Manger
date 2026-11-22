@@ -1,7 +1,20 @@
-import { ChevronRight, DatabaseBackup, Eye, EyeOff, HandCoins, Plus, Settings, Smartphone, Sparkles } from 'lucide-react'
+import {
+  ChevronRight,
+  DatabaseBackup,
+  Eye,
+  EyeOff,
+  Landmark,
+  Plus,
+  Settings,
+  Smartphone,
+  Sparkles,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CategoryBreakdown } from './components/CategoryBreakdown'
-import { EntriesSection } from './components/EntriesSection'
+import { DebtsView } from './components/DebtsView'
+import { EntriesSection, type ListTab } from './components/EntriesSection'
 import { EntrySheet, type EntryTarget } from './components/EntrySheet'
 import { ForecastCard } from './components/ForecastCard'
 import { HeroCard } from './components/HeroCard'
@@ -14,18 +27,41 @@ import { useInstallPrompt } from './hooks/useInstallPrompt'
 import { useMeta } from './hooks/useMeta'
 import { useStore } from './hooks/useStore'
 import { useToday } from './hooks/useToday'
-import { computeBreakdown, computeForecast, computeSummary, computeTimeline, nextMonthDue } from './lib/calc'
-import { currentMonthIndex, toMonthKey } from './lib/calc'
-import { formatMoney, formatMoneyShort, formatRelativeDate, MONTHS } from './lib/format'
+import {
+  computeBreakdown,
+  computeForecast,
+  computeSummary,
+  computeTimeline,
+  currentMonthIndex,
+  nextMonthDue,
+  toMonthKey,
+} from './lib/calc'
+import {
+  collectDebts,
+  debtTotals,
+  projectLoan,
+  simulatePlan,
+  toDateKey,
+  withLoanEnds,
+  type DebtEntry,
+} from './lib/debts'
+import { formatMoney, formatMoneyShort, formatMonthIndex, formatRelativeDate, MONTHS } from './lib/format'
 import { createId } from './lib/id'
 import { downloadBackup, hasContent, loadSnapshot, saveSnapshot } from './lib/storage'
-import type { Category, Debt, EntryKind, Expense, SortMode } from './types'
+import type { Category, Debt, Expense, SortMode } from './types'
 
 type Sheet =
   | { type: 'entry'; target: EntryTarget }
   | { type: 'income' }
   | { type: 'settings' }
   | null
+
+type View = 'budget' | 'debts'
+
+const VIEWS: { id: View; label: string; icon: LucideIcon }[] = [
+  { id: 'budget', label: 'Budget', icon: Wallet },
+  { id: 'debts', label: 'Schulden', icon: Landmark },
+]
 
 const DAY = 86_400_000
 
@@ -47,6 +83,7 @@ export default function App() {
   const { meta, updateMeta } = useMeta()
   const install = useInstallPrompt()
   const now = useToday()
+  const [view, setView] = useState<View>('budget')
   const [sheet, setSheet] = useState<Sheet>(() =>
     START_ACTION === 'neu'
       ? { type: 'entry', target: { kind: 'expense', item: null } }
@@ -54,7 +91,7 @@ export default function App() {
         ? { type: 'entry', target: { kind: 'oneoff', item: null } }
         : null,
   )
-  const [tab, setTab] = useState<EntryKind>(START_ACTION === 'einmalig' ? 'oneoff' : 'expense')
+  const [tab, setTab] = useState<ListTab>(START_ACTION === 'einmalig' ? 'oneoff' : 'expense')
   const listRef = useRef<HTMLElement>(null)
   const [sort, setSort] = useState<SortMode>('category')
   const [filter, setFilter] = useState<Category | null>(null)
@@ -62,30 +99,57 @@ export default function App() {
   const [snapshot, setSnapshot] = useState(loadSnapshot)
 
   const currency = data.settings.currency
-  const summary = useMemo(() => computeSummary(data, now), [data, now])
-  const timeline = useMemo(() => computeTimeline(data.expenses, now), [data.expenses, now])
-  const nextMonth = useMemo(() => nextMonthDue(data.expenses, now), [data.expenses, now])
-  const breakdown = useMemo(() => computeBreakdown(data.expenses, now), [data.expenses, now])
-  const forecast = useMemo(() => computeForecast(data, now), [data, now])
+  const debtPlan = data.settings.debtPlan
+
+  // Kredite mit Restschuld enden, sobald sie abbezahlt sind → für Budget, Ausblick und Zeitleiste
+  const expenses = useMemo(() => withLoanEnds(data.expenses, now), [data.expenses, now])
+  const calcData = useMemo(() => ({ ...data, expenses }), [data, expenses])
+  const summary = useMemo(() => computeSummary(calcData, now), [calcData, now])
+  const timeline = useMemo(() => computeTimeline(expenses, now), [expenses, now])
+  const nextMonth = useMemo(() => nextMonthDue(expenses, now), [expenses, now])
+  const breakdown = useMemo(() => computeBreakdown(expenses, now), [expenses, now])
+  const forecast = useMemo(() => computeForecast(calcData, now), [calcData, now])
+
+  const debtEntries = useMemo(() => collectDebts(data, now), [data, now])
+  const debts = useMemo(() => debtTotals(debtEntries), [debtEntries])
+  const plan = useMemo(
+    () => simulatePlan(debtEntries, { ...debtPlan, rollover: true }, now),
+    [debtEntries, debtPlan, now],
+  )
 
   // Filter zurücksetzen, wenn die Kategorie keine aktiven Posten mehr hat
   const activeFilter = filter && breakdown.some((c) => c.category === filter) ? filter : null
 
   const closeSheet = useCallback(() => setSheet(null), [])
   const openEntry = useCallback((target: EntryTarget) => setSheet({ type: 'entry', target }), [])
-  const openExpense = useCallback((item: Expense | null) => openEntry({ kind: 'expense', item }), [openEntry])
+  // Listen zeigen Posten mit abgeleitetem Kreditende – bearbeitet wird immer das gespeicherte Original
+  const openExpense = useCallback(
+    (item: Expense | null) =>
+      openEntry({ kind: 'expense', item: item && (data.expenses.find((e) => e.id === item.id) ?? item) }),
+    [openEntry, data.expenses],
+  )
+  const openDebtEntry = (entry: DebtEntry) => {
+    if (entry.expense) openExpense(entry.expense)
+    else if (entry.debt) openEntry({ kind: 'debt', item: entry.debt })
+  }
 
   const recentOneOffNames = useMemo(
     () => [...new Set([...data.oneOffs].reverse().map((o) => o.name))].slice(0, 5),
     [data.oneOffs],
   )
 
-  const showTab = (kind: EntryKind) => {
-    setTab(kind)
+  const switchView = (next: View) => {
+    setView(next)
+    window.scrollTo({ top: 0 })
+  }
+  const showTab = (next: ListTab) => {
+    setTab(next)
     requestAnimationFrame(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
   const dismissToast = useCallback(() => setToast(null), [])
   const showToast = (message: string, onUndo?: () => void) => setToast({ id: Date.now(), message, onUndo })
+  /** Rückgängig für Änderungen an mehreren Stellen: vorherigen Stand komplett wiederherstellen */
+  const undoTo = (previous: typeof data) => () => actions.replaceData(previous)
 
   /** Große Änderungen: vorher Sicherheitskopie anlegen und „Rückgängig“ anbieten */
   const replaceSafely = (reason: string, message: string, apply: () => void, demoAfter: boolean) => {
@@ -127,24 +191,43 @@ export default function App() {
     if (removed) showToast(`Schuld „${removed.name}“ gelöscht`, () => actions.upsertDebt(removed))
   }
 
+  const thisMonthOneOff = (name: string, amount: number) => ({
+    id: createId(),
+    name,
+    amount,
+    month: toMonthKey(currentMonthIndex(now)),
+  })
+
   const payDebt = (debt: Debt, amount: number, recordAsOneOff: boolean) => {
     const previous = data
-    const oneOff = recordAsOneOff
-      ? {
-          id: createId(),
-          name: `Rückzahlung an ${debt.name}`,
-          amount,
-          month: toMonthKey(currentMonthIndex(now)),
-        }
-      : null
-    actions.payDebt(debt.id, amount, oneOff)
+    actions.payDebt(debt.id, amount, recordAsOneOff ? thisMonthOneOff(`Rückzahlung an ${debt.name}`, amount) : null)
     const settled = debt.amount - amount <= 0.004
     showToast(
-      settled
-        ? `Schuld bei ${debt.name} beglichen`
-        : `${formatMoney(amount, currency)} an ${debt.name} zurückgezahlt`,
-      () => actions.replaceData(previous),
+      settled ? `Schuld bei ${debt.name} beglichen` : `${formatMoney(amount, currency)} an ${debt.name} zurückgezahlt`,
+      undoTo(previous),
     )
+  }
+
+  /** Sondertilgung: Restschuld auf heute fortschreiben und um den Betrag verringern */
+  const repayLoan = (expense: Expense, amount: number, recordAsOneOff: boolean) => {
+    if (!expense.loan) return
+    const previous = data
+    const balance = Math.max(0, Math.round((projectLoan(expense, now).balance - amount) * 100) / 100)
+    actions.upsertExpense({ ...expense, loan: { ...expense.loan, balance, balanceDate: toDateKey(now) } })
+    if (recordAsOneOff) actions.upsertOneOff(thisMonthOneOff(`Sondertilgung ${expense.name}`, amount))
+    showToast(
+      balance <= 0 ? `${expense.name} ist abbezahlt` : `${formatMoney(amount, currency)} Sondertilgung erfasst`,
+      undoTo(previous),
+    )
+  }
+
+  /** Kündigungs-Erinnerung erledigt */
+  const markCancelled = (entry: DebtEntry) => {
+    const previous = data
+    const original = data.expenses.find((e) => e.id === entry.id)
+    if (original?.loan) actions.upsertExpense({ ...original, loan: { ...original.loan, cancelWhenPaid: false } })
+    else if (entry.debt) actions.upsertDebt({ ...entry.debt, cancelWhenPaid: false })
+    showToast(`${entry.name} als gekündigt markiert`, undoTo(previous))
   }
 
   const loadDemo = () => {
@@ -162,7 +245,6 @@ export default function App() {
   }
 
   const isEmpty = !hasContent(data)
-  const openDebts = data.debts.filter((d) => d.amount > 0)
   const nowMs = now.getTime()
   const showInstallHint = install.canInstall && !meta.installHintDismissed && !isEmpty
   const backupDue =
@@ -211,6 +293,108 @@ export default function App() {
     )
   }
 
+  const budgetView = isEmpty ? (
+    <section className="rounded-3xl border border-white/10 bg-surface-1 p-5">
+      <h2 className="text-lg font-semibold tracking-tight">In zwei Schritten startklar</h2>
+      <p className="mt-1 text-sm text-zinc-400">
+        Einmal eintragen – danach siehst du jeden Monat, was dir nach allen Fixkosten bleibt.
+      </p>
+      <ol className="mt-4 space-y-2">
+        {[
+          {
+            step: 1,
+            title: 'Nettoeinkommen eintragen',
+            text:
+              data.netIncome > 0
+                ? `Aktuell ${formatMoney(data.netIncome, currency)} – was monatlich auf dem Konto ankommt`
+                : 'Was monatlich auf deinem Konto ankommt',
+            onClick: () => setSheet({ type: 'income' }),
+          },
+          {
+            step: 2,
+            title: 'Fixkosten hinzufügen',
+            text: 'Miete, PKV, Kredite, Klarna, Abos …',
+            onClick: () => openExpense(null),
+          },
+        ].map((item) => (
+          <li key={item.step}>
+            <button
+              type="button"
+              onClick={item.onClick}
+              className="flex min-h-16 w-full items-center gap-3 rounded-2xl bg-white/[0.04] p-3 text-left transition hover:bg-white/[0.07] active:scale-[0.99]"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-sm font-bold text-emerald-300">
+                {item.step}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{item.title}</span>
+                <span className="block text-xs text-zinc-500">{item.text}</span>
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-zinc-500" />
+            </button>
+          </li>
+        ))}
+      </ol>
+      <button
+        type="button"
+        onClick={loadDemo}
+        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium text-zinc-300 transition hover:bg-white/[0.04]"
+      >
+        <Sparkles className="size-4" /> Erst mal mit Beispieldaten ausprobieren
+      </button>
+    </section>
+  ) : (
+    <>
+      {debts.openCount > 0 && (
+        <button
+          type="button"
+          onClick={() => switchView('debts')}
+          className="flex w-full items-center gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] px-3.5 py-2.5 text-left transition hover:bg-amber-300/[0.08]"
+        >
+          <Landmark className="size-5 shrink-0 text-amber-300" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">Schulden gesamt</span>
+            <span className="block text-[11px] text-zinc-500">
+              {plan.debtFreeIdx !== null
+                ? `schuldenfrei ca. ${formatMonthIndex(plan.debtFreeIdx, true)} · Plan ansehen`
+                : 'Tilgungsplan ansehen'}
+            </span>
+          </span>
+          <span className="shrink-0 font-semibold tabular-nums">{formatMoneyShort(debts.total, currency)}</span>
+          <ChevronRight className="size-4 shrink-0 text-zinc-500" />
+        </button>
+      )}
+      <UpcomingBar timeline={timeline} nextMonth={nextMonth} currency={currency} onOpen={openExpense} />
+      <CategoryBreakdown
+        breakdown={breakdown}
+        currency={currency}
+        activeFilter={activeFilter}
+        onFilter={(category) => {
+          setFilter(category)
+          if (category) showTab('expense')
+        }}
+      />
+      <ForecastCard forecast={forecast} currency={currency} />
+      <EntriesSection
+        ref={listRef}
+        expenses={expenses}
+        oneOffs={data.oneOffs}
+        currency={currency}
+        now={now}
+        tab={tab}
+        onTabChange={setTab}
+        sort={sort}
+        onSortChange={setSort}
+        filter={activeFilter}
+        onClearFilter={() => setFilter(null)}
+        onToggleExpense={actions.toggleExpense}
+        onOpenExpense={openExpense}
+        onOpenOneOff={(item) => openEntry({ kind: 'oneoff', item })}
+        onAdd={(kind) => openEntry({ kind, item: null })}
+      />
+    </>
+  )
+
   return (
     <div
       data-private={meta.privacy ? '' : undefined}
@@ -246,15 +430,48 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mt-3 space-y-4">
-        <HeroCard
-          summary={summary}
-          currency={currency}
-          monthName={MONTHS[now.getMonth()]}
-          onEditIncome={() => setSheet({ type: 'income' })}
-          onShowOneOffs={() => showTab('oneoff')}
-          onShowExpenses={() => showTab('expense')}
-        />
+      <div
+        role="tablist"
+        aria-label="Bereich"
+        className="mt-3 grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-surface-1 p-1"
+      >
+        {VIEWS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={view === id}
+            onClick={() => switchView(id)}
+            className={`flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition ${
+              view === id ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Icon className="size-4" />
+            {label}
+            {id === 'debts' && debts.openCount > 0 && (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none font-bold tabular-nums ${
+                  view === id ? 'bg-zinc-950/10 text-zinc-700' : 'bg-white/[0.08] text-zinc-400'
+                }`}
+              >
+                {debts.openCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <main className="mt-4 space-y-4">
+        {view === 'budget' && (
+          <HeroCard
+            summary={summary}
+            currency={currency}
+            monthName={MONTHS[now.getMonth()]}
+            onEditIncome={() => setSheet({ type: 'income' })}
+            onShowOneOffs={() => showTab('oneoff')}
+            onShowExpenses={() => showTab('expense')}
+          />
+        )}
 
         {saveFailed && (
           <p
@@ -268,118 +485,28 @@ export default function App() {
 
         {notice}
 
-        {openDebts.length > 0 && (
-          <button
-            type="button"
-            onClick={() => showTab('debt')}
-            className="flex w-full items-center gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] px-3.5 py-2.5 text-left transition hover:bg-amber-300/[0.08]"
-          >
-            <HandCoins className="size-5 shrink-0 text-amber-300" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">
-                {openDebts.length === 1 ? `Offen bei ${openDebts[0].name}` : `${openDebts.length} offene Schulden`}
-              </span>
-              <span className="block text-[11px] text-zinc-500">nicht im Budget eingerechnet</span>
-            </span>
-            <span className="shrink-0 font-semibold tabular-nums">
-              {formatMoneyShort(summary.openDebts, currency)}
-            </span>
-            <ChevronRight className="size-4 shrink-0 text-zinc-500" />
-          </button>
-        )}
-
-        {isEmpty ? (
-          <section className="rounded-3xl border border-white/10 bg-surface-1 p-5">
-            <h2 className="text-lg font-semibold tracking-tight">In zwei Schritten startklar</h2>
-            <p className="mt-1 text-sm text-zinc-400">
-              Einmal eintragen – danach siehst du jeden Monat, was dir nach allen Fixkosten bleibt.
-            </p>
-            <ol className="mt-4 space-y-2">
-              {[
-                {
-                  step: 1,
-                  title: 'Nettoeinkommen eintragen',
-                  text:
-                    data.netIncome > 0
-                      ? `Aktuell ${formatMoney(data.netIncome, currency)} – was monatlich auf dem Konto ankommt`
-                      : 'Was monatlich auf deinem Konto ankommt',
-                  onClick: () => setSheet({ type: 'income' }),
-                },
-                {
-                  step: 2,
-                  title: 'Fixkosten hinzufügen',
-                  text: 'Miete, PKV, Kredite, Klarna, Abos …',
-                  onClick: () => openExpense(null),
-                },
-              ].map((item) => (
-                <li key={item.step}>
-                  <button
-                    type="button"
-                    onClick={item.onClick}
-                    className="flex min-h-16 w-full items-center gap-3 rounded-2xl bg-white/[0.04] p-3 text-left transition hover:bg-white/[0.07] active:scale-[0.99]"
-                  >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-sm font-bold text-emerald-300">
-                      {item.step}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium">{item.title}</span>
-                      <span className="block text-xs text-zinc-500">{item.text}</span>
-                    </span>
-                    <ChevronRight className="size-4 shrink-0 text-zinc-500" />
-                  </button>
-                </li>
-              ))}
-            </ol>
-            <button
-              type="button"
-              onClick={loadDemo}
-              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium text-zinc-300 transition hover:bg-white/[0.04]"
-            >
-              <Sparkles className="size-4" /> Erst mal mit Beispieldaten ausprobieren
-            </button>
-          </section>
+        {view === 'budget' ? (
+          budgetView
         ) : (
-          <>
-            <UpcomingBar
-              timeline={timeline}
-              nextMonth={nextMonth}
-              currency={currency}
-              onOpen={openExpense}
-            />
-            <CategoryBreakdown
-              breakdown={breakdown}
-              currency={currency}
-              activeFilter={activeFilter}
-              onFilter={(category) => {
-                setFilter(category)
-                if (category) showTab('expense')
-              }}
-            />
-            <ForecastCard forecast={forecast} currency={currency} />
-            <EntriesSection
-              ref={listRef}
-              data={data}
-              currency={currency}
-              now={now}
-              tab={tab}
-              onTabChange={setTab}
-              sort={sort}
-              onSortChange={setSort}
-              filter={activeFilter}
-              onClearFilter={() => setFilter(null)}
-              onToggleExpense={actions.toggleExpense}
-              onOpenExpense={openExpense}
-              onOpenOneOff={(item) => openEntry({ kind: 'oneoff', item })}
-              onOpenDebt={(item) => openEntry({ kind: 'debt', item })}
-              onAdd={(kind) => openEntry({ kind, item: null } as EntryTarget)}
-            />
-          </>
+          <DebtsView
+            entries={debtEntries}
+            totals={debts}
+            plan={debtPlan}
+            planResult={plan}
+            freeBudget={summary.freeBudget}
+            currency={currency}
+            now={now}
+            onPlanChange={actions.setDebtPlan}
+            onOpen={openDebtEntry}
+            onAdd={() => openEntry({ kind: 'debt', item: null })}
+            onCancelDone={markCancelled}
+          />
         )}
       </main>
 
       <button
         type="button"
-        onClick={() => openEntry({ kind: tab, item: null } as EntryTarget)}
+        onClick={() => openEntry({ kind: view === 'debts' ? 'debt' : tab, item: null })}
         className="fixed right-[max(1.25rem,calc(50%-15rem))] bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex size-16 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition hover:bg-zinc-200 active:scale-90"
         aria-label="Eintrag hinzufügen"
       >
@@ -402,6 +529,7 @@ export default function App() {
           onSaveDebt={actions.upsertDebt}
           onDeleteDebt={deleteDebt}
           onPayDebt={payDebt}
+          onLoanRepayment={repayLoan}
           onClose={closeSheet}
         />
       )}

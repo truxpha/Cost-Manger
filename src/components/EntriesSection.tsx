@@ -1,15 +1,17 @@
 import { forwardRef } from 'react'
-import type { AppData, Category, Debt, EntryKind, Expense, OneOff, SortMode } from '../types'
-import { DebtList } from './DebtList'
+import type { Category, Expense, OneOff, SortMode } from '../types'
 import { ExpenseList } from './ExpenseList'
 import { OneOffList } from './OneOffList'
 
+export type ListTab = 'expense' | 'oneoff'
+
 interface Props {
-  data: AppData
+  expenses: Expense[]
+  oneOffs: OneOff[]
   currency: string
   now: Date
-  tab: EntryKind
-  onTabChange: (tab: EntryKind) => void
+  tab: ListTab
+  onTabChange: (tab: ListTab) => void
   sort: SortMode
   onSortChange: (sort: SortMode) => void
   filter: Category | null
@@ -17,23 +19,20 @@ interface Props {
   onToggleExpense: (id: string) => void
   onOpenExpense: (expense: Expense) => void
   onOpenOneOff: (item: OneOff) => void
-  onOpenDebt: (debt: Debt) => void
-  onAdd: (kind: EntryKind) => void
+  onAdd: (kind: ListTab) => void
 }
 
 export const EntriesSection = forwardRef<HTMLElement, Props>(function EntriesSection(props, ref) {
-  const { data, currency, now, tab } = props
-  const openDebt = data.debts.filter((d) => d.amount > 0)
+  const { expenses, oneOffs, currency, now, tab } = props
 
-  const tabs: { id: EntryKind; label: string; badge?: string }[] = [
-    { id: 'expense', label: 'Fixkosten', badge: String(data.expenses.length) },
-    { id: 'oneoff', label: 'Einmalig', badge: data.oneOffs.length ? String(data.oneOffs.length) : undefined },
-    { id: 'debt', label: 'Schulden', badge: openDebt.length ? String(openDebt.length) : undefined },
+  const tabs: { id: ListTab; label: string; badge?: string }[] = [
+    { id: 'expense', label: 'Fixkosten', badge: String(expenses.length) },
+    { id: 'oneoff', label: 'Einmalig', badge: oneOffs.length ? String(oneOffs.length) : undefined },
   ]
 
   return (
     <section ref={ref} aria-label="Einträge" className="scroll-mt-4">
-      <div role="tablist" aria-label="Einträge" className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-surface-1 p-1">
+      <div role="tablist" aria-label="Einträge" className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-surface-1 p-1">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -62,7 +61,7 @@ export const EntriesSection = forwardRef<HTMLElement, Props>(function EntriesSec
       <div className="mt-3" role="tabpanel">
         {tab === 'expense' && (
           <ExpenseList
-            expenses={data.expenses}
+            expenses={expenses}
             currency={currency}
             sort={props.sort}
             onSortChange={props.onSortChange}
@@ -76,15 +75,12 @@ export const EntriesSection = forwardRef<HTMLElement, Props>(function EntriesSec
         )}
         {tab === 'oneoff' && (
           <OneOffList
-            items={data.oneOffs}
+            items={oneOffs}
             currency={currency}
             now={now}
             onOpen={props.onOpenOneOff}
             onAdd={() => props.onAdd('oneoff')}
           />
-        )}
-        {tab === 'debt' && (
-          <DebtList debts={data.debts} currency={currency} onOpen={props.onOpenDebt} onAdd={() => props.onAdd('debt')} />
         )}
       </div>
     </section>

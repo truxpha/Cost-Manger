@@ -7,6 +7,20 @@ export type Category =
   | 'Verträge & Abos'
   | 'Sonstiges'
 
+/** Kredit-Details für die Schuldenübersicht (optional) */
+export interface LoanInfo {
+  /** Restschuld zum Stichtag */
+  balance: number
+  /** Stichtag der Restschuld „YYYY-MM-DD“ – danach sinkt sie mit jeder Rate */
+  balanceDate: string
+  /** Restschuld bei der ersten Erfassung (für den Fortschritt) */
+  original: number
+  /** Effektiver Jahreszins in Prozent */
+  interestRate?: number
+  /** Nach dem Abbezahlen kündigen (z. B. Kreditkarte) */
+  cancelWhenPaid?: boolean
+}
+
 export interface Expense {
   id: string
   name: string
@@ -25,6 +39,8 @@ export interface Expense {
    * (z. B. Kredit oder Ratenkauf). Danach fällt der Posten weg.
    */
   endMonth?: string
+  /** Restschuld & Zins, wenn der Posten ein Kredit / eine Kreditkarte ist */
+  loan?: LoanInfo
   category: Category
   color: string
   isActive: boolean
@@ -56,11 +72,25 @@ export interface Debt {
   amount: number
   /** Ursprünglicher Betrag (für den Fortschritt) */
   original: number
+  /** Effektiver Jahreszins in Prozent (z. B. Dispo, Kreditkarte ohne feste Rate) */
+  interestRate?: number
+  /** Nach dem Abbezahlen kündigen (z. B. Dispo, Kreditkarte) */
+  cancelWhenPaid?: boolean
   note?: string
+}
+
+/** Tilgungsstrategie: Lawine = höchster Zins zuerst, Schneeball = kleinste Schuld zuerst */
+export type DebtStrategy = 'avalanche' | 'snowball'
+
+export interface DebtPlan {
+  strategy: DebtStrategy
+  /** Zusätzliche Tilgung pro Monat */
+  extra: number
 }
 
 export interface Settings {
   currency: string
+  debtPlan: DebtPlan
 }
 
 export interface AppData {

@@ -10,20 +10,38 @@ import {
   toMonthKey,
 } from '../lib/calc'
 import { ACCENT_COLORS, CATEGORIES, getCategory } from '../lib/categories'
-import { amountToInput, CYCLE_LABEL, formatMoney, MONTHS, parseAmount, quarterMonths, MONTHS_SHORT } from '../lib/format'
+import { projectLoan, toDateKey } from '../lib/debts'
+import {
+  amountToInput,
+  CYCLE_LABEL,
+  formatMoney,
+  MONTHS,
+  MONTHS_SHORT,
+  parseAmount,
+  quarterMonths,
+  rateToInput,
+} from '../lib/format'
 import { createId } from '../lib/id'
-import type { BillingCycle, Category, Expense } from '../types'
+import type { BillingCycle, Category, Expense, LoanInfo } from '../types'
 import { cleanAmountInput, focusField, inputClass, labelClass } from '../lib/ui'
+import { LoanFields } from './LoanFields'
 import { MonthPicker } from './MonthPicker'
+import { RepaymentBox } from './RepaymentBox'
 import { Toggle } from './Toggle'
 
 interface Props {
   expense: Expense | null
   currency: string
+  /** „loan“: neuer Kredit aus dem Schulden-Bereich (nur Kredit-Vorlagen) */
+  mode?: 'default' | 'loan'
+  monthLabel: string
   onSave: (expense: Expense) => void
+  onLoanRepayment: (expense: Expense, amount: number, recordAsOneOff: boolean) => void
   onClose: () => void
   now: Date
 }
+
+const LOAN_CATEGORY: Category = 'Kredite & Bildung'
 
 export const EXPENSE_FORM_ID = 'expense-form'
 
@@ -37,6 +55,8 @@ interface Preset {
   payments?: number
   /** Kurzer Hinweis, was man eintragen sollte */
   hint?: string
+  /** Kündigungs-Erinnerung vorbelegen */
+  cancelWhenPaid?: boolean
 }
 
 const PRESETS: Preset[] = [
@@ -54,7 +74,7 @@ const PRESETS: Preset[] = [
     category: 'Kredite & Bildung',
     billingDay: 15,
     payments: 24,
-    hint: 'Monatliche Rate eintragen und unten die Laufzeit anpassen – dann siehst du im Ausblick, ab wann du mehr Geld hast.',
+    hint: 'Monatliche Rate und Laufzeit eintragen, unten optional Restschuld und Zinssatz – dann siehst du, ab wann du mehr Geld hast.',
   },
   {
     name: 'Klarna',
@@ -67,7 +87,8 @@ const PRESETS: Preset[] = [
     name: 'Kreditkarte',
     category: 'Kredite & Bildung',
     billingDay: 1,
-    hint: 'Nur eine feste Teilzahlungsrate oder die Jahresgebühr eintragen. Normale Einkäufe mit der Karte zahlst du aus deinem frei verfügbaren Budget – sonst wird doppelt gezählt.',
+    cancelWhenPaid: true,
+    hint: 'Feste Monatsrate (Teilzahlung) eintragen, unten Restschuld und Zinssatz. Normale Einkäufe mit der Karte zahlst du aus deinem frei verfügbaren Budget – nicht zusätzlich eintragen.',
   },
   {
     name: 'BAföG',
@@ -85,15 +106,26 @@ const PRESETS: Preset[] = [
 const CYCLES: BillingCycle[] = ['monthly', 'quarterly', 'yearly']
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
 
-export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) {
+export function ExpenseForm({
+  expense,
+  currency,
+  mode = 'default',
+  monthLabel,
+  onSave,
+  onLoanRepayment,
+  onClose,
+  now,
+}: Props) {
   const isNew = expense === null
+  const startCategory = expense?.category ?? (mode === 'loan' ? LOAN_CATEGORY : 'Wohnen')
+  const presets = mode === 'loan' ? PRESETS.filter((p) => p.category === LOAN_CATEGORY) : PRESETS
   const [name, setName] = useState(expense?.name ?? '')
   const [amountText, setAmountText] = useState(amountToInput(expense?.amount ?? 0))
   const [cycle, setCycle] = useState<BillingCycle>(expense?.billingCycle ?? 'monthly')
   const [billingDay, setBillingDay] = useState(expense?.billingDay ?? 1)
   const [billingMonth, setBillingMonth] = useState(() => expense?.billingMonth ?? new Date().getMonth() + 1)
-  const [category, setCategory] = useState<Category>(expense?.category ?? 'Wohnen')
-  const [color, setColor] = useState(expense?.color ?? getCategory('Wohnen').color)
+  const [category, setCategory] = useState<Category>(startCategory)
+  const [color, setColor] = useState(expense?.color ?? getCategory(startCategory).color)
   const [colorTouched, setColorTouched] = useState(
     expense ? expense.color !== getCategory(expense.category).color : false,
   )
@@ -107,10 +139,75 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
   const [countFocused, setCountFocused] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
+  // Kredit-Details: Restschuld wird mit dem heutigen Stand vorbelegt
+  const [initialLoan] = useState(() => {
+    if (!expense?.loan) return { balance: '', rate: '' }
+    const balance = Math.round(projectLoan(expense, now).balance * 100) / 100
+    return {
+      balance: balance > 0 ? amountToInput(balance) : '0',
+      rate: expense.loan.interestRate !== undefined ? rateToInput(expense.loan.interestRate) : '',
+    }
+  })
+  const [balanceText, setBalanceText] = useState(initialLoan.balance)
+  const [rateText, setRateText] = useState(initialLoan.rate)
+  const [cancelWhenPaid, setCancelWhenPaid] = useState(Boolean(expense?.loan?.cancelWhenPaid))
+
   const amount = parseAmount(amountText)
   const schedule = { billingCycle: cycle, billingDay, billingMonth }
   const remainingCount = remainingPayments(schedule, endIdx, now)
   const activeHint = PRESETS.find((p) => p.name === name.trim())?.hint
+
+  const isLoan = category === LOAN_CATEGORY
+  const loanBalance = balanceText.trim() === '' ? null : parseAmount(balanceText)
+  const loanRate = rateText.trim() === '' ? null : parseAmount(rateText)
+  const balanceInvalid = balanceText.trim() !== '' && loanBalance === null
+  const rateInvalid = rateText.trim() !== '' && (loanRate === null || loanRate > 100)
+
+  /** Kredit-Details aus den Eingaben; unveränderte Restschuld behält ihren Stichtag */
+  const buildLoan = (): LoanInfo | undefined => {
+    const existing = expense?.loan
+    if (!isLoan || loanBalance === null || (loanBalance <= 0 && !existing)) return undefined
+    const unchanged = balanceText === initialLoan.balance && rateText === initialLoan.rate
+    const loan: LoanInfo =
+      existing && unchanged
+        ? { balance: existing.balance, balanceDate: existing.balanceDate, original: existing.original }
+        : {
+            balance: loanBalance,
+            balanceDate: toDateKey(now),
+            original: existing ? Math.max(existing.original, loanBalance) : loanBalance,
+          }
+    if (loanRate !== null) loan.interestRate = loanRate
+    if (cancelWhenPaid) loan.cancelWhenPaid = true
+    return loan
+  }
+
+  // Vorschau: wann ist der Kredit mit dieser Rate abbezahlt?
+  const loanPreview =
+    isLoan && loanBalance !== null && loanBalance > 0 && amount !== null && amount > 0 && !rateInvalid
+      ? projectLoan(
+          {
+            id: 'vorschau',
+            name,
+            amount,
+            billingCycle: cycle,
+            billingDay,
+            billingMonth,
+            category,
+            color,
+            isActive: true,
+            ...(hasEnd ? { endMonth: toMonthKey(endIdx) } : {}),
+            loan: {
+              balance: loanBalance,
+              balanceDate: toDateKey(now),
+              original: loanBalance,
+              ...(loanRate !== null ? { interestRate: loanRate } : {}),
+            },
+          },
+          now,
+        )
+      : null
+  const previewMonthlyInterest = ((loanBalance ?? 0) * (loanRate ?? 0)) / 1200
+  const repayableBalance = expense?.loan ? projectLoan(expense, now).balance : 0
 
   const changeCount = (value: string) => {
     const clean = value.replace(/\D/g, '').slice(0, 3)
@@ -132,6 +229,7 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
     setBillingDay(preset.billingDay)
     setCycle(preset.billingCycle ?? 'monthly')
     if (preset.billingMonth) setBillingMonth(preset.billingMonth)
+    setCancelWhenPaid(Boolean(preset.cancelWhenPaid))
     setHasEnd(Boolean(preset.payments))
     if (preset.payments) {
       setEndIdx(
@@ -149,6 +247,8 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
     setSubmitted(true)
     if (name.trim() === '') return focusField('expense-name')
     if (amount === null || amount <= 0) return focusField('expense-amount')
+    if (isLoan && balanceInvalid) return focusField('loan-balance')
+    if (isLoan && rateInvalid) return focusField('loan-rate')
     const result: Expense = {
       id: expense?.id ?? createId(),
       name: name.trim(),
@@ -161,6 +261,8 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
     }
     if (cycle !== 'monthly') result.billingMonth = billingMonth
     if (hasEnd) result.endMonth = toMonthKey(endIdx)
+    const loan = buildLoan()
+    if (loan) result.loan = loan
     onSave(result)
     onClose()
   }
@@ -171,12 +273,13 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
       : null
 
   return (
+    <div className="space-y-5">
       <form id={EXPENSE_FORM_ID} onSubmit={handleSubmit} className="space-y-5" noValidate>
         {isNew && (
           <div>
             <span className={labelClass}>Schnellauswahl</span>
             <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
-              {PRESETS.map((preset) => {
+              {presets.map((preset) => {
                 const meta = getCategory(preset.category)
                 const Icon = meta.icon
                 const selected = name === preset.name
@@ -226,7 +329,7 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
 
         <div>
           <label htmlFor="expense-amount" className={labelClass}>
-            Betrag pro Abbuchung
+            {isLoan ? 'Rate pro Abbuchung' : 'Betrag pro Abbuchung'}
           </label>
           <div className="relative">
             <input
@@ -316,6 +419,23 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
           </p>
         )}
 
+        {isLoan && (
+          <LoanFields
+            currency={currency}
+            balanceText={balanceText}
+            onBalanceText={setBalanceText}
+            rateText={rateText}
+            onRateText={setRateText}
+            cancelWhenPaid={cancelWhenPaid}
+            onToggleCancel={() => setCancelWhenPaid((v) => !v)}
+            balanceError={submitted && balanceInvalid}
+            rateError={submitted && rateInvalid}
+            projection={loanPreview}
+            monthlyInterest={previewMonthlyInterest}
+          />
+        )}
+
+        {mode !== 'loan' && (
         <div>
           <span className={labelClass}>Kategorie</span>
           <div role="radiogroup" className="grid grid-cols-2 gap-1.5">
@@ -346,6 +466,7 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
             })}
           </div>
         </div>
+        )}
 
         <div>
           <span className={labelClass}>Akzentfarbe</span>
@@ -446,5 +567,19 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
           <Toggle checked={isActive} onChange={() => setIsActive((v) => !v)} label="Aktiv" />
         </div>
       </form>
+
+      {expense?.loan && repayableBalance > 0.005 && (
+        <RepaymentBox
+          title="Sondertilgung"
+          currency={currency}
+          monthLabel={monthLabel}
+          max={repayableBalance}
+          onSubmit={(value, recordAsOneOff) => {
+            onLoanRepayment(expense, value, recordAsOneOff)
+            onClose()
+          }}
+        />
+      )}
+    </div>
   )
 }

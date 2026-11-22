@@ -48,8 +48,6 @@ export interface Summary {
   oneOffThisMonth: number
   /** Frei verfügbar minus Einmalausgaben dieses Monats */
   leftThisMonth: number
-  /** Summe offener Schulden (nicht eingerechnet) */
-  openDebts: number
 }
 
 export function computeSummary(data: AppData, now: Date): Summary {
@@ -71,7 +69,6 @@ export function computeSummary(data: AppData, now: Date): Summary {
     pausedCount: data.expenses.filter((e) => !e.isActive && !isFinished(e, now)).length,
     oneOffThisMonth,
     leftThisMonth: totalIncome - fixedCosts - oneOffThisMonth,
-    openDebts: data.debts.reduce((sum, d) => sum + d.amount, 0),
   }
 }
 

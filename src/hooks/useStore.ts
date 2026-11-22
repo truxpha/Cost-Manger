@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AppData, Debt, Expense, IncomeItem, OneOff } from '../types'
+import type { AppData, Debt, DebtPlan, Expense, IncomeItem, OneOff } from '../types'
 import { createDemoData, createEmptyData } from '../lib/demo'
 import { loadData, parseAppData, saveData, STORAGE_KEY } from '../lib/storage'
 
@@ -95,6 +95,10 @@ export function useStore() {
     setData((d) => ({ ...d, settings: { ...d.settings, currency } }))
   }, [])
 
+  const setDebtPlan = useCallback((debtPlan: DebtPlan) => {
+    setData((d) => ({ ...d, settings: { ...d.settings, debtPlan } }))
+  }, [])
+
   const replaceData = useCallback((next: AppData) => setData(next), [])
 
   const loadDemo = useCallback(() => {
@@ -117,6 +121,7 @@ export function useStore() {
       payDebt,
       setIncome,
       setCurrency,
+      setDebtPlan,
       replaceData,
       loadDemo,
       reset,
@@ -132,6 +137,7 @@ export function useStore() {
       payDebt,
       setIncome,
       setCurrency,
+      setDebtPlan,
       replaceData,
       loadDemo,
       reset,
