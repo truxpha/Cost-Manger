@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { currentMonthIndex, fromMonthIndex, parseMonthKey, toMonthKey } from '../lib/calc'
-import { amountToInput, formatMonthIndex, parseAmount } from '../lib/format'
+import { amountToInput, parseAmount } from '../lib/format'
 import { createId } from '../lib/id'
-import { cleanAmountInput, inputClass, labelClass } from '../lib/ui'
+import { cleanAmountInput, focusField, inputClass, labelClass } from '../lib/ui'
 import type { OneOff } from '../types'
 import { MonthPicker } from './MonthPicker'
 
@@ -36,7 +36,8 @@ export function OneOffForm({ item, currency, now, recentNames, onSave, onClose }
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    if (name.trim() === '' || amount === null || amount <= 0) return
+    if (name.trim() === '') return focusField('oneoff-name')
+    if (amount === null || amount <= 0) return focusField('oneoff-amount')
     const result: OneOff = { id: item?.id ?? createId(), name: name.trim(), amount, month: toMonthKey(monthIdx) }
     if (note.trim()) result.note = note.trim()
     onSave(result)
@@ -132,7 +133,6 @@ export function OneOffForm({ item, currency, now, recentNames, onSave, onClose }
           years={6}
           label="Monat"
         />
-        <p className="mt-1 text-xs text-zinc-500">{formatMonthIndex(monthIdx)}</p>
       </div>
 
       <div>

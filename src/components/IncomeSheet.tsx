@@ -2,6 +2,7 @@ import { Check, Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { amountToInput, formatMoney, parseAmount } from '../lib/format'
 import { createId } from '../lib/id'
+import { cleanAmountInput, inputBaseClass, inputClass } from '../lib/ui'
 import type { IncomeItem } from '../types'
 import { BottomSheet } from './BottomSheet'
 import { Toggle } from './Toggle'
@@ -21,9 +22,6 @@ interface DraftItem {
   isActive: boolean
 }
 
-const inputBase =
-  'h-12 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-base text-white placeholder:text-zinc-600 outline-none transition focus:border-emerald-400/60 focus:bg-white/[0.06]'
-const inputClass = `${inputBase} w-full`
 
 export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose }: Props) {
   const [netText, setNetText] = useState(amountToInput(netIncome))
@@ -78,7 +76,7 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
               id="net-income"
               className={`${inputClass} pr-12 text-2xl font-semibold tabular-nums`}
               value={netText}
-              onChange={(e) => setNetText(e.target.value.replace(/[^0-9.,]/g, ''))}
+              onChange={(e) => setNetText(cleanAmountInput(e.target.value))}
               placeholder="3900"
               inputMode="decimal"
               autoComplete="off"
@@ -87,6 +85,10 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
               {currency}
             </span>
           </div>
+          <p className="mt-1.5 text-xs text-zinc-500">
+            Der Betrag, der monatlich auf deinem Konto ankommt (Auszahlung laut Gehaltsabrechnung). Ein
+            Arbeitgeberzuschuss zur PKV ist darin schon enthalten.
+          </p>
         </div>
 
         <div>
@@ -101,7 +103,7 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
               <li key={item.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-2">
                 <div className="flex gap-2">
                   <input
-                    className={`${inputBase} min-w-0 flex-1`}
+                    className={`${inputBaseClass} min-w-0 flex-1`}
                     value={item.name}
                     onChange={(e) => updateItem(item.id, { name: e.target.value })}
                     placeholder="z. B. Nebenjob"
@@ -109,9 +111,9 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
                     maxLength={40}
                   />
                   <input
-                    className={`${inputBase} w-28 shrink-0 text-right tabular-nums`}
+                    className={`${inputBaseClass} w-28 shrink-0 text-right tabular-nums`}
                     value={item.amountText}
-                    onChange={(e) => updateItem(item.id, { amountText: e.target.value.replace(/[^0-9.,]/g, '') })}
+                    onChange={(e) => updateItem(item.id, { amountText: cleanAmountInput(e.target.value) })}
                     placeholder="0"
                     inputMode="decimal"
                     aria-label="Betrag"

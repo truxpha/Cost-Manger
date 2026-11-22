@@ -9,11 +9,13 @@ interface Props {
   footer?: ReactNode
   /** Fester Bereich unter dem Titel (z. B. Typ-Umschalter) */
   toolbar?: ReactNode
+  /** Feste Höhe, damit der Inhalt beim Umschalten nicht springt */
+  fullHeight?: boolean
 }
 
 const DISMISS_DISTANCE = 110
 
-export function BottomSheet({ title, onClose, children, footer, toolbar }: Props) {
+export function BottomSheet({ title, onClose, children, footer, toolbar, fullHeight = false }: Props) {
   const titleId = useId()
   const drag = useRef<{ startY: number; startT: number } | null>(null)
   const [dragY, setDragY] = useState(0)
@@ -68,7 +70,9 @@ export function BottomSheet({ title, onClose, children, footer, toolbar }: Props
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="animate-sheet-up relative flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-surface-1 shadow-2xl sm:rounded-3xl"
+        className={`animate-sheet-up relative flex w-full max-w-lg flex-col rounded-t-3xl border border-white/10 bg-surface-1 shadow-2xl sm:rounded-3xl ${
+          fullHeight ? 'h-[92dvh] sm:h-[min(92dvh,52rem)]' : 'max-h-[92dvh]'
+        }`}
         style={{
           transform: dragY ? `translateY(${dragY}px)` : undefined,
           transition: dragging ? 'none' : 'transform 220ms cubic-bezier(0.32, 0.72, 0, 1)',

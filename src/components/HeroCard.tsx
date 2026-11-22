@@ -8,6 +8,7 @@ interface Props {
   monthName: string
   onEditIncome: () => void
   onShowOneOffs: () => void
+  onShowExpenses: () => void
 }
 
 function quoteColor(quote: number): string {
@@ -16,7 +17,7 @@ function quoteColor(quote: number): string {
   return '#f87171'
 }
 
-export function HeroCard({ summary, currency, monthName, onEditIncome, onShowOneOffs }: Props) {
+export function HeroCard({ summary, currency, monthName, onEditIncome, onShowOneOffs, onShowExpenses }: Props) {
   const { whole, cents } = splitMoney(summary.freeBudget)
   const negative = summary.freeBudget < 0
   const color = quoteColor(summary.quote)
@@ -83,8 +84,15 @@ export function HeroCard({ summary, currency, monthName, onEditIncome, onShowOne
             </span>
           )}
         </button>
-        <div className="rounded-2xl bg-white/[0.04] p-3">
-          <span className="block text-xs text-zinc-400">Fixkosten gesamt</span>
+        <button
+          type="button"
+          onClick={onShowExpenses}
+          className="group rounded-2xl bg-white/[0.04] p-3 text-left transition hover:bg-white/[0.07] active:scale-[0.98]"
+        >
+          <span className="flex items-center justify-between text-xs text-zinc-400">
+            Fixkosten gesamt
+            <ChevronRight className="size-3.5 text-zinc-500 transition group-hover:translate-x-0.5" />
+          </span>
           <span className="mt-1 block text-base font-semibold tabular-nums">
             {formatMoney(summary.fixedCosts, currency)}
           </span>
@@ -92,7 +100,7 @@ export function HeroCard({ summary, currency, monthName, onEditIncome, onShowOne
             {summary.activeCount} aktiv
             {summary.pausedCount > 0 && ` · ${summary.pausedCount} pausiert`}
           </span>
-        </div>
+        </button>
       </div>
 
       <div className="mt-4">

@@ -1,5 +1,5 @@
-import { ChevronRight, DatabaseBackup, Eye, EyeOff, HandCoins, Plus, Settings, Smartphone, Sparkles, Wallet } from 'lucide-react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { ChevronRight, DatabaseBackup, Eye, EyeOff, HandCoins, Plus, Settings, Smartphone, Sparkles } from 'lucide-react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CategoryBreakdown } from './components/CategoryBreakdown'
 import { EntriesSection } from './components/EntriesSection'
 import { EntrySheet, type EntryTarget } from './components/EntrySheet'
@@ -136,6 +136,16 @@ export default function App() {
     )
   }
 
+  const loadDemo = () => {
+    replaceSafely('Demo-Daten', 'Beispieldaten geladen', actions.loadDemo)
+    updateMeta({ demo: true })
+  }
+
+  const resetAll = (message: string) => {
+    replaceSafely('Zurücksetzen', message, actions.reset)
+    updateMeta({ demo: false })
+  }
+
   const backupNow = () => {
     downloadBackup(data)
     updateMeta({ lastBackupAt: new Date().toISOString() })
@@ -151,6 +161,46 @@ export default function App() {
     nowMs - Date.parse(meta.firstUseAt) > 3 * DAY &&
     (!meta.lastBackupAt || nowMs - Date.parse(meta.lastBackupAt) > 30 * DAY) &&
     (!meta.backupReminderSnoozedUntil || nowMs > Date.parse(meta.backupReminderSnoozedUntil))
+
+  // Höchstens ein Hinweis gleichzeitig: Beispieldaten > Installation > Backup
+  let notice: ReactNode = null
+  if (meta.demo && !isEmpty) {
+    notice = (
+      <NoticeCard
+        icon={Sparkles}
+        title="Du siehst Beispieldaten"
+        text="Schau dich in Ruhe um. Wenn du bereit bist, starte mit deinen eigenen Zahlen."
+        actionLabel="Eigene Daten starten"
+        onAction={() => resetAll('Beispieldaten entfernt')}
+        dismissLabel="Behalten"
+        onDismiss={() => updateMeta({ demo: false })}
+      />
+    )
+  } else if (showInstallHint) {
+    notice = (
+      <NoticeCard
+        icon={Smartphone}
+        title="Als App installieren"
+        text="Startet wie eine normale App vom Startbildschirm – und Android schützt deine Daten besser vor automatischem Löschen."
+        actionLabel="Installieren"
+        onAction={() => void install.install()}
+        dismissLabel="Nicht jetzt"
+        onDismiss={() => updateMeta({ installHintDismissed: true })}
+      />
+    )
+  } else if (backupDue) {
+    notice = (
+      <NoticeCard
+        icon={DatabaseBackup}
+        title="Zeit für ein Backup"
+        text={`${meta.lastBackupAt ? `Letztes Backup ${formatRelativeDate(meta.lastBackupAt, now)}.` : 'Du hast noch kein Backup.'} Ein Tipp speichert eine Datei in „Downloads“ – nützlich bei Handywechsel oder gelöschten Browserdaten.`}
+        actionLabel="Backup speichern"
+        onAction={backupNow}
+        dismissLabel="Später"
+        onDismiss={() => updateMeta({ backupReminderSnoozedUntil: new Date(nowMs + 14 * DAY).toISOString() })}
+      />
+    )
+  }
 
   return (
     <div
@@ -194,7 +244,10 @@ export default function App() {
           monthName={MONTHS[now.getMonth()]}
           onEditIncome={() => setSheet({ type: 'income' })}
           onShowOneOffs={() => showTab('oneoff')}
+          onShowExpenses={() => showTab('expense')}
         />
+
+        {notice}
 
         {openDebts.length > 0 && (
           <button
@@ -216,55 +269,52 @@ export default function App() {
           </button>
         )}
 
-        {showInstallHint ? (
-          <NoticeCard
-            icon={Smartphone}
-            title="Als App installieren"
-            text="Startet wie eine normale App vom Startbildschirm – und Android schützt deine Daten besser vor automatischem Löschen."
-            actionLabel="Installieren"
-            onAction={() => void install.install()}
-            dismissLabel="Nicht jetzt"
-            onDismiss={() => updateMeta({ installHintDismissed: true })}
-          />
-        ) : (
-          backupDue && (
-            <NoticeCard
-              icon={DatabaseBackup}
-              title="Zeit für ein Backup"
-              text={`${meta.lastBackupAt ? `Letztes Backup ${formatRelativeDate(meta.lastBackupAt, now)}.` : 'Du hast noch kein Backup.'} Ein Tipp speichert eine Datei in „Downloads“ – nützlich bei Handywechsel oder gelöschten Browserdaten.`}
-              actionLabel="Backup speichern"
-              onAction={backupNow}
-              dismissLabel="Später"
-              onDismiss={() => updateMeta({ backupReminderSnoozedUntil: new Date(nowMs + 14 * DAY).toISOString() })}
-            />
-          )
-        )}
-
         {isEmpty ? (
-          <section className="rounded-3xl border border-dashed border-white/15 p-6 text-center">
-            <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-white/[0.06]">
-              <Wallet className="size-6 text-zinc-300" />
-            </span>
-            <h2 className="mt-3 font-semibold">Noch keine Fixkosten</h2>
+          <section className="rounded-3xl border border-white/10 bg-surface-1 p-5">
+            <h2 className="text-lg font-semibold tracking-tight">In zwei Schritten startklar</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Trage Miete, Kredite, Versicherungen und Abos ein – einmalig, ohne tägliches Tracking.
+              Einmal eintragen – danach siehst du jeden Monat, was dir nach allen Fixkosten bleibt.
             </p>
-            <div className="mt-5 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => openExpense(null)}
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-white font-semibold text-zinc-950 active:scale-[0.98]"
-              >
-                <Plus className="size-5" /> Ersten Posten hinzufügen
-              </button>
-              <button
-                type="button"
-                onClick={() => replaceSafely('Demo-Daten', 'Demo-Daten geladen', actions.loadDemo)}
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-white/[0.06] font-medium text-zinc-200 active:scale-[0.98]"
-              >
-                <Sparkles className="size-4" /> Demo-Daten laden
-              </button>
-            </div>
+            <ol className="mt-4 space-y-2">
+              {[
+                {
+                  step: 1,
+                  title: 'Nettoeinkommen eintragen',
+                  text: `Aktuell ${formatMoney(data.netIncome, currency)} – was monatlich auf dem Konto ankommt`,
+                  onClick: () => setSheet({ type: 'income' }),
+                },
+                {
+                  step: 2,
+                  title: 'Fixkosten hinzufügen',
+                  text: 'Miete, PKV, Kredite, Klarna, Abos …',
+                  onClick: () => openExpense(null),
+                },
+              ].map((item) => (
+                <li key={item.step}>
+                  <button
+                    type="button"
+                    onClick={item.onClick}
+                    className="flex min-h-16 w-full items-center gap-3 rounded-2xl bg-white/[0.04] p-3 text-left transition hover:bg-white/[0.07] active:scale-[0.99]"
+                  >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-sm font-bold text-emerald-300">
+                      {item.step}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">{item.title}</span>
+                      <span className="block text-xs text-zinc-500">{item.text}</span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-zinc-500" />
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <button
+              type="button"
+              onClick={loadDemo}
+              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium text-zinc-300 transition hover:bg-white/[0.04]"
+            >
+              <Sparkles className="size-4" /> Erst mal mit Beispieldaten ausprobieren
+            </button>
           </section>
         ) : (
           <>
@@ -280,7 +330,7 @@ export default function App() {
               activeFilter={activeFilter}
               onFilter={(category) => {
                 setFilter(category)
-                if (category) setTab('expense')
+                if (category) showTab('expense')
               }}
             />
             <ForecastCard forecast={forecast} currency={currency} />
@@ -351,18 +401,20 @@ export default function App() {
           install={install}
           onCurrencyChange={actions.setCurrency}
           onBackupDone={() => updateMeta({ lastBackupAt: new Date().toISOString() })}
-          onImport={(imported) =>
+          onImport={(imported) => {
             replaceSafely('Import', `${imported.expenses.length} Posten aus Backup geladen`, () =>
               actions.replaceData(imported),
             )
-          }
+            updateMeta({ demo: false })
+          }}
           onRestoreSnapshot={() => {
             if (!snapshot) return
             const restored = snapshot.data
             replaceSafely('Wiederherstellen', 'Vorheriger Stand wiederhergestellt', () => actions.replaceData(restored))
+            updateMeta({ demo: false })
           }}
-          onLoadDemo={() => replaceSafely('Demo-Daten', 'Demo-Daten geladen', actions.loadDemo)}
-          onReset={() => replaceSafely('Zurücksetzen', 'Alle Daten gelöscht', actions.reset)}
+          onLoadDemo={loadDemo}
+          onReset={() => resetAll('Alle Daten gelöscht')}
           onClose={closeSheet}
         />
       )}

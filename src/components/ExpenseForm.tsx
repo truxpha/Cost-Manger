@@ -13,7 +13,7 @@ import { ACCENT_COLORS, CATEGORIES, getCategory } from '../lib/categories'
 import { amountToInput, CYCLE_LABEL, formatMoney, MONTHS, parseAmount, quarterMonths, MONTHS_SHORT } from '../lib/format'
 import { createId } from '../lib/id'
 import type { BillingCycle, Category, Expense } from '../types'
-import { cleanAmountInput, inputClass, labelClass } from '../lib/ui'
+import { cleanAmountInput, focusField, inputClass, labelClass } from '../lib/ui'
 import { MonthPicker } from './MonthPicker'
 import { Toggle } from './Toggle'
 
@@ -147,7 +147,8 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    if (name.trim() === '' || amount === null || amount <= 0) return
+    if (name.trim() === '') return focusField('expense-name')
+    if (amount === null || amount <= 0) return focusField('expense-amount')
     const result: Expense = {
       id: expense?.id ?? createId(),
       name: name.trim(),
@@ -348,7 +349,7 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
 
         <div>
           <span className={labelClass}>Akzentfarbe</span>
-          <div className="grid grid-cols-5 justify-items-center gap-1 sm:grid-cols-10">
+          <div className="grid grid-cols-10">
             {ACCENT_COLORS.map((c) => (
               <button
                 key={c}
@@ -357,12 +358,12 @@ export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) 
                   setColor(c)
                   setColorTouched(true)
                 }}
-                className="flex size-11 items-center justify-center"
+                className="flex h-11 items-center justify-center"
                 aria-label={`Farbe ${c}`}
                 aria-pressed={color === c}
               >
                 <span
-                  className={`size-7 rounded-full transition ${color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-surface-1' : ''}`}
+                  className={`size-6 rounded-full transition ${color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-surface-1' : ''}`}
                   style={{ backgroundColor: c }}
                 />
               </button>

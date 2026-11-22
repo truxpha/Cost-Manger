@@ -234,6 +234,8 @@ export interface Meta {
   backupReminderSnoozedUntil?: string
   installHintDismissed?: boolean
   privacy?: boolean
+  /** Beispieldaten geladen → Hinweis „Eigene Daten starten“ */
+  demo?: boolean
 }
 
 export function loadMeta(): Meta {

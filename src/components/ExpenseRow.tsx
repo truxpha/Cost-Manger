@@ -20,36 +20,39 @@ export function ExpenseRow({ expense, currency, onOpen, onToggle, now }: Props) 
   const endIdx = expense.endMonth ? parseMonthKey(expense.endMonth) : null
   const remaining = endIdx !== null && !finished ? remainingPayments(expense, endIdx, now) : null
 
+  let subtitle = billingLabel(expense)
+  if (expense.billingCycle !== 'monthly') {
+    subtitle += ` · ${formatMoneyShort(expense.amount, currency)} ${CYCLE_SUFFIX[expense.billingCycle]}`
+  }
+  if (finished) subtitle = 'Abbezahlt'
+  else if (!expense.isActive) subtitle = 'Pausiert · nicht eingerechnet'
+
   return (
     <li className="flex items-center gap-1 rounded-2xl pr-1 transition hover:bg-white/[0.03]">
       <button
         type="button"
         onClick={() => onOpen(expense)}
-        className="flex min-h-16 min-w-0 flex-1 items-center gap-3 rounded-2xl py-2 pl-2 text-left active:scale-[0.99]"
+        className="flex min-h-16 min-w-0 flex-1 items-center gap-3 rounded-2xl py-2.5 pl-2 text-left active:scale-[0.99]"
       >
         <CategoryIcon category={expense.category} color={expense.color} muted={inactive} />
-        <span className={`min-w-0 flex-1 transition-opacity ${inactive ? 'opacity-45' : ''}`}>
-          <span className="line-clamp-2 block leading-snug font-medium break-words">{expense.name}</span>
-          <span className="block truncate text-xs text-zinc-500">
-            {finished ? 'Abbezahlt' : !expense.isActive ? 'Pausiert · nicht eingerechnet' : billingLabel(expense)}
-          </span>
-          {remaining !== null && endIdx !== null && (
-            <span className="mt-0.5 block truncate text-[11px] text-zinc-400 tabular-nums">
-              {remaining > 0
-                ? `Noch ${remaining} ${remaining === 1 ? 'Rate' : 'Raten'} · bis ${formatMonthIndex(endIdx, true)}`
-                : `Letzte Zahlung erledigt · endet ${formatMonthIndex(endIdx, true)}`}
-            </span>
-          )}
-        </span>
-        <span className={`shrink-0 text-right whitespace-nowrap transition-opacity ${inactive ? 'opacity-45' : ''}`}>
+        {/* Untertitel laufen unter dem Betrag weiter und werden so seltener abgeschnitten */}
+        <span
+          className={`grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 transition-opacity ${
+            inactive ? 'opacity-45' : ''
+          }`}
+        >
+          <span className="line-clamp-2 leading-snug font-medium break-words">{expense.name}</span>
           <span
-            className={`block font-semibold tabular-nums ${inactive ? 'line-through decoration-zinc-500' : ''}`}
+            className={`font-semibold whitespace-nowrap tabular-nums ${inactive ? 'line-through decoration-zinc-500' : ''}`}
           >
             {formatMoney(monthly, currency)}
           </span>
-          {expense.billingCycle !== 'monthly' && (
-            <span className="block text-[11px] text-zinc-500 tabular-nums">
-              {formatMoneyShort(expense.amount, currency)} {CYCLE_SUFFIX[expense.billingCycle]}
+          <span className="col-span-2 truncate text-xs text-zinc-500">{subtitle}</span>
+          {remaining !== null && endIdx !== null && (
+            <span className="col-span-2 mt-0.5 truncate text-[11px] text-zinc-400 tabular-nums">
+              {remaining > 0
+                ? `Noch ${remaining} ${remaining === 1 ? 'Rate' : 'Raten'} · bis ${formatMonthIndex(endIdx, true)}`
+                : `Letzte Zahlung erledigt · endet ${formatMonthIndex(endIdx, true)}`}
             </span>
           )}
         </span>
@@ -59,11 +62,11 @@ export function ExpenseRow({ expense, currency, onOpen, onToggle, now }: Props) 
           <CheckCircle2 className="size-5 text-emerald-400/70" />
         </span>
       ) : (
-      <Toggle
-        checked={expense.isActive}
-        onChange={() => onToggle(expense.id)}
-        label={`${expense.name} ${expense.isActive ? 'pausieren' : 'aktivieren'}`}
-      />
+        <Toggle
+          checked={expense.isActive}
+          onChange={() => onToggle(expense.id)}
+          label={`${expense.name} ${expense.isActive ? 'pausieren' : 'aktivieren'}`}
+        />
       )}
     </li>
   )

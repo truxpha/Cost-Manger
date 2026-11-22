@@ -62,6 +62,7 @@ export function EntrySheet(props: Props) {
     <BottomSheet
       title={isNew ? 'Neuer Eintrag' : EDIT_TITLE[kind]}
       onClose={onClose}
+      fullHeight={isNew}
       toolbar={
         isNew && (
           <div role="radiogroup" aria-label="Art des Eintrags" className="grid grid-cols-3 gap-1 rounded-2xl bg-white/[0.05] p-1">

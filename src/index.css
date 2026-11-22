@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 
 @theme {
+  /* Etwas helleres Grau für Nebentexte: Kontrast > 5:1 auf dunklem Grund (WCAG AA) */
+  --color-zinc-500: #85858f;
   --color-surface-0: #09090b;
   --color-surface-1: #121215;
   --font-sans:

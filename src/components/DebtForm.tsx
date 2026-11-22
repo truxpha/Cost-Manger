@@ -2,7 +2,7 @@ import { HandCoins } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { amountToInput, formatMoney, parseAmount } from '../lib/format'
 import { createId } from '../lib/id'
-import { cleanAmountInput, inputClass, labelClass } from '../lib/ui'
+import { cleanAmountInput, focusField, inputClass, labelClass } from '../lib/ui'
 import type { Debt } from '../types'
 import { Toggle } from './Toggle'
 
@@ -35,7 +35,8 @@ export function DebtForm({ debt, currency, monthLabel, onSave, onPay, onClose }:
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    if (name.trim() === '' || amount === null) return
+    if (name.trim() === '') return focusField('debt-name')
+    if (amount === null) return focusField('debt-amount')
     const result: Debt = {
       id: debt?.id ?? createId(),
       name: name.trim(),

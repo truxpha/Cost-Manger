@@ -279,7 +279,7 @@ export function SettingsSheet({
           )}
         </section>
 
-        <p className="text-center text-[11px] text-zinc-600">Fixkosten · lokal & offline · v1.3</p>
+        <p className="text-center text-[11px] text-zinc-500">Fixkosten · lokal & offline · v1.3</p>
       </div>
     </BottomSheet>
   )
