@@ -45,11 +45,17 @@ export function useInstallPrompt() {
   const install = async (): Promise<boolean> => {
     if (!deferred) return false
     const event = deferred
-    await event.prompt()
-    const { outcome } = await event.userChoice
-    deferred = null
-    notify()
-    return outcome === 'accepted'
+    try {
+      await event.prompt()
+      const { outcome } = await event.userChoice
+      return outcome === 'accepted'
+    } catch {
+      // Ereignis bereits verbraucht oder vom Browser abgelehnt
+      return false
+    } finally {
+      deferred = null
+      notify()
+    }
   }
 
   return { canInstall: deferred !== null && !standalone, standalone, install }

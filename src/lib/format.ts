@@ -35,8 +35,14 @@ export function parseAmount(input: string): number | null {
   const trimmed = input.trim().replace(/\s|€/g, '')
   if (trimmed === '') return null
   let normalized = trimmed
-  if (normalized.includes(',')) {
+  if (normalized.includes(',') && normalized.lastIndexOf('.') > normalized.lastIndexOf(',')) {
+    // Englisch mit Tausenderkomma: 1,234.56
+    normalized = normalized.replace(/,/g, '')
+  } else if (normalized.includes(',')) {
     normalized = normalized.replace(/\./g, '').replace(',', '.')
+  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(normalized)) {
+    // Deutscher Tausenderpunkt ohne Nachkommastellen: 1.500 → 1500
+    normalized = normalized.replace(/\./g, '')
   }
   const value = Number(normalized)
   if (!Number.isFinite(value) || value < 0) return null

@@ -19,7 +19,8 @@ export const DEBT_FORM_ID = 'debt-form'
 
 export function DebtForm({ debt, currency, monthLabel, onSave, onPay, onClose }: Props) {
   const [name, setName] = useState(debt?.name ?? '')
-  const [amountText, setAmountText] = useState(amountToInput(debt?.amount ?? 0))
+  // Beglichene Schuld zeigt „0“, damit sie ohne neue Eingabe gespeichert werden kann
+  const [amountText, setAmountText] = useState(debt && debt.amount === 0 ? '0' : amountToInput(debt?.amount ?? 0))
   const [note, setNote] = useState(debt?.note ?? '')
   const [payText, setPayText] = useState('')
   const [recordAsOneOff, setRecordAsOneOff] = useState(true)
@@ -93,6 +94,7 @@ export function DebtForm({ debt, currency, monthLabel, onSave, onPay, onClose }:
               {currency}
             </span>
           </div>
+          {amountError && <p className="mt-1 text-xs text-rose-400">Bitte einen gültigen Betrag eingeben.</p>}
           {debt && debt.original > 0 && paidSoFar > 0 && (
             <p className="mt-1 text-xs text-zinc-500 tabular-nums">
               Bereits {formatMoney(paidSoFar, currency)} von {formatMoney(debt.original, currency)} zurückgezahlt

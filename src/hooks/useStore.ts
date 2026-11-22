@@ -1,14 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AppData, Debt, Expense, IncomeItem, OneOff } from '../types'
 import { createDemoData, createEmptyData } from '../lib/demo'
-import { loadData, saveData } from '../lib/storage'
+import { loadData, parseAppData, saveData, STORAGE_KEY } from '../lib/storage'
 
 export function useStore() {
   const [data, setData] = useState<AppData>(loadData)
+  const [saveFailed, setSaveFailed] = useState(false)
 
   useEffect(() => {
-    saveData(data)
+    const ok = saveData(data)
+    // localStorage ist ein externes System: Ergebnis nach dem Speichern melden
+    queueMicrotask(() => setSaveFailed(!ok))
   }, [data])
+
+  // Änderungen aus einem anderen Tab / Fenster übernehmen, statt sie beim nächsten Speichern zu überschreiben
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY || !e.newValue) return
+      try {
+        setData(parseAppData(JSON.parse(e.newValue)))
+      } catch {
+        // ungültige Daten aus dem anderen Tab ignorieren
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   const upsertExpense = useCallback((expense: Expense) => {
     setData((d) => {
@@ -121,7 +138,7 @@ export function useStore() {
     ],
   )
 
-  return { data, actions }
+  return { data, actions, saveFailed }
 }
 
 export type StoreActions = ReturnType<typeof useStore>['actions']

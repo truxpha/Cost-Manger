@@ -51,7 +51,7 @@ export function createDemoData(currency = '€'): AppData {
 export function createEmptyData(currency = '€'): AppData {
   return {
     version: 1,
-    netIncome: 3900,
+    netIncome: 0,
     extraIncome: [],
     expenses: [],
     oneOffs: [],

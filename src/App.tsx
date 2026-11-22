@@ -43,7 +43,7 @@ function consumeStartAction(): string | null {
 const START_ACTION = consumeStartAction()
 
 export default function App() {
-  const { data, actions } = useStore()
+  const { data, actions, saveFailed } = useStore()
   const { meta, updateMeta } = useMeta()
   const install = useInstallPrompt()
   const now = useToday()
@@ -88,14 +88,25 @@ export default function App() {
   const showToast = (message: string, onUndo?: () => void) => setToast({ id: Date.now(), message, onUndo })
 
   /** Große Änderungen: vorher Sicherheitskopie anlegen und „Rückgängig“ anbieten */
-  const replaceSafely = (reason: string, message: string, apply: () => void) => {
+  const replaceSafely = (reason: string, message: string, apply: () => void, demoAfter: boolean) => {
     const previous = data
+    const previousDemo = Boolean(meta.demo)
     if (hasContent(previous)) {
       saveSnapshot(previous, reason)
       setSnapshot(loadSnapshot())
     }
     apply()
-    showToast(message, hasContent(previous) ? () => actions.replaceData(previous) : undefined)
+    updateMeta({ demo: demoAfter })
+    showToast(
+      message,
+      hasContent(previous)
+        ? () => {
+            actions.replaceData(previous)
+            // Demo-Hinweis passend zum wiederhergestellten Stand
+            updateMeta({ demo: previousDemo })
+          }
+        : undefined,
+    )
   }
 
   const deleteExpense = (id: string) => {
@@ -137,13 +148,11 @@ export default function App() {
   }
 
   const loadDemo = () => {
-    replaceSafely('Demo-Daten', 'Beispieldaten geladen', actions.loadDemo)
-    updateMeta({ demo: true })
+    replaceSafely('Demo-Daten', 'Beispieldaten geladen', actions.loadDemo, true)
   }
 
   const resetAll = (message: string) => {
-    replaceSafely('Zurücksetzen', message, actions.reset)
-    updateMeta({ demo: false })
+    replaceSafely('Zurücksetzen', message, actions.reset, false)
   }
 
   const backupNow = () => {
@@ -247,6 +256,16 @@ export default function App() {
           onShowExpenses={() => showTab('expense')}
         />
 
+        {saveFailed && (
+          <p
+            role="alert"
+            className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-200"
+          >
+            Änderungen konnten nicht gespeichert werden (Speicher voll oder privater Modus). Bitte ein Backup
+            speichern, bevor du die App schließt.
+          </p>
+        )}
+
         {notice}
 
         {openDebts.length > 0 && (
@@ -280,7 +299,10 @@ export default function App() {
                 {
                   step: 1,
                   title: 'Nettoeinkommen eintragen',
-                  text: `Aktuell ${formatMoney(data.netIncome, currency)} – was monatlich auf dem Konto ankommt`,
+                  text:
+                    data.netIncome > 0
+                      ? `Aktuell ${formatMoney(data.netIncome, currency)} – was monatlich auf dem Konto ankommt`
+                      : 'Was monatlich auf deinem Konto ankommt',
                   onClick: () => setSheet({ type: 'income' }),
                 },
                 {
@@ -402,16 +424,22 @@ export default function App() {
           onCurrencyChange={actions.setCurrency}
           onBackupDone={() => updateMeta({ lastBackupAt: new Date().toISOString() })}
           onImport={(imported) => {
-            replaceSafely('Import', `${imported.expenses.length} Posten aus Backup geladen`, () =>
-              actions.replaceData(imported),
+            replaceSafely(
+              'Import',
+              `${imported.expenses.length} Posten aus Backup geladen`,
+              () => actions.replaceData(imported),
+              false,
             )
-            updateMeta({ demo: false })
           }}
           onRestoreSnapshot={() => {
             if (!snapshot) return
             const restored = snapshot.data
-            replaceSafely('Wiederherstellen', 'Vorheriger Stand wiederhergestellt', () => actions.replaceData(restored))
-            updateMeta({ demo: false })
+            replaceSafely(
+              'Wiederherstellen',
+              'Vorheriger Stand wiederhergestellt',
+              () => actions.replaceData(restored),
+              false,
+            )
           }}
           onLoadDemo={loadDemo}
           onReset={() => resetAll('Alle Daten gelöscht')}

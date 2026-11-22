@@ -2,7 +2,7 @@ import { Check, Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { amountToInput, formatMoney, parseAmount } from '../lib/format'
 import { createId } from '../lib/id'
-import { cleanAmountInput, inputBaseClass, inputClass } from '../lib/ui'
+import { cleanAmountInput, focusField, inputBaseClass, inputClass } from '../lib/ui'
 import type { IncomeItem } from '../types'
 import { BottomSheet } from './BottomSheet'
 import { Toggle } from './Toggle'
@@ -29,7 +29,11 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
     extraIncome.map((i) => ({ id: i.id, name: i.name, amountText: amountToInput(i.amount), isActive: i.isActive })),
   )
 
-  const net = parseAmount(netText) ?? 0
+  const [submitted, setSubmitted] = useState(false)
+  const netParsed = parseAmount(netText)
+  const netInvalid = netText.trim() !== '' && netParsed === null
+  const net = netParsed ?? 0
+  const isItemInvalid = (i: DraftItem) => i.amountText.trim() !== '' && parseAmount(i.amountText) === null
   const extraTotal = items
     .filter((i) => i.isActive)
     .reduce((sum, i) => sum + (parseAmount(i.amountText) ?? 0), 0)
@@ -39,6 +43,10 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    setSubmitted(true)
+    // Ungültige Eingaben nicht stillschweigend als 0 speichern bzw. verwerfen
+    if (netInvalid) return focusField('net-income')
+    if (items.some(isItemInvalid)) return
     const cleaned: IncomeItem[] = items
       .map((i) => ({
         id: i.id,
@@ -74,7 +82,7 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
           <div className="relative">
             <input
               id="net-income"
-              className={`${inputClass} pr-12 text-2xl font-semibold tabular-nums`}
+              className={`${inputClass} pr-12 text-2xl font-semibold tabular-nums ${submitted && netInvalid ? 'border-rose-500/70' : ''}`}
               value={netText}
               onChange={(e) => setNetText(cleanAmountInput(e.target.value))}
               placeholder="3900"
@@ -85,6 +93,9 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
               {currency}
             </span>
           </div>
+          {submitted && netInvalid && (
+            <p className="mt-1 text-xs text-rose-400">Bitte einen gültigen Betrag eingeben.</p>
+          )}
           <p className="mt-1.5 text-xs text-zinc-500">
             Der Betrag, der monatlich auf deinem Konto ankommt (Auszahlung laut Gehaltsabrechnung). Ein
             Arbeitgeberzuschuss zur PKV ist darin schon enthalten.
@@ -111,7 +122,7 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
                     maxLength={40}
                   />
                   <input
-                    className={`${inputBaseClass} w-28 shrink-0 text-right tabular-nums`}
+                    className={`${inputBaseClass} w-28 shrink-0 text-right tabular-nums ${submitted && isItemInvalid(item) ? 'border-rose-500/70' : ''}`}
                     value={item.amountText}
                     onChange={(e) => updateItem(item.id, { amountText: cleanAmountInput(e.target.value) })}
                     placeholder="0"

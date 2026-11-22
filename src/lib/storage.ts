@@ -122,21 +122,39 @@ export function parseAppData(raw: unknown): AppData {
   }
 }
 
+/** Unlesbare Rohdaten werden hier aufbewahrt, statt beim nächsten Speichern überschrieben zu werden. */
+const CORRUPT_KEY = 'fixkosten-tracker:corrupt'
+
 export function loadData(): AppData {
+  let stored: string | null = null
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) return parseAppData(JSON.parse(stored))
+    stored = localStorage.getItem(STORAGE_KEY)
   } catch {
-    // Beschädigte oder nicht verfügbare Daten → Neustart mit leerem Zustand
+    // Speicher nicht verfügbar → Neustart mit leerem Zustand
+    return createEmptyData()
+  }
+  if (stored) {
+    try {
+      return parseAppData(JSON.parse(stored))
+    } catch {
+      // Beschädigte Daten → Rohdaten sichern, dann mit leerem Zustand starten
+      try {
+        localStorage.setItem(CORRUPT_KEY, stored)
+      } catch {
+        // ignorieren
+      }
+    }
   }
   return createEmptyData()
 }
 
-export function saveData(data: AppData): void {
+/** Gibt false zurück, wenn nicht gespeichert werden konnte (z. B. privater Modus oder Speicher voll). */
+export function saveData(data: AppData): boolean {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    return true
   } catch {
-    // z. B. privater Modus oder Speicher voll – App bleibt nutzbar
+    return false
   }
 }
 

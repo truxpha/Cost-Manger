@@ -16,5 +16,12 @@ export function useToday(): Date {
     }
   }, [])
 
+  // Kurz nach Mitternacht aktualisieren, damit „heute“/„noch offen“ nicht bis zu einer Stunde veraltet ist
+  useEffect(() => {
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const timer = window.setTimeout(() => setNow(new Date()), next.getTime() - Date.now() + 1000)
+    return () => window.clearTimeout(timer)
+  }, [now])
+
   return now
 }
