@@ -320,8 +320,8 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
 
         <div>
           <span className={labelClass}>Kategorie</span>
-          <div role="radiogroup" className="grid grid-cols-1 gap-1.5">
-            {CATEGORIES.map((meta) => {
+          <div role="radiogroup" className="grid grid-cols-2 gap-1.5">
+            {CATEGORIES.map((meta, i) => {
               const Icon = meta.icon
               const selected = category === meta.id
               return (
@@ -331,18 +331,18 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
                   role="radio"
                   aria-checked={selected}
                   onClick={() => changeCategory(meta.id)}
-                  className={`flex h-12 items-center gap-3 rounded-xl border px-3 text-left text-sm font-medium transition ${
-                    selected ? 'border-white/30 bg-white/[0.08]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
-                  }`}
+                  className={`flex min-h-12 items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-left text-[13px] leading-tight font-medium transition ${
+                    i === CATEGORIES.length - 1 ? 'col-span-2' : ''
+                  } ${selected ? 'border-white/40 bg-white/[0.09]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
                 >
                   <span
-                    className="flex size-7 items-center justify-center rounded-lg"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-lg"
                     style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}
                   >
                     <Icon className="size-4" />
                   </span>
-                  <span className="flex-1">{meta.id}</span>
-                  {selected && <Check className="size-4 text-emerald-400" />}
+                  <span className="min-w-0 flex-1">{meta.id}</span>
+                  {selected && <Check className="size-4 shrink-0 text-emerald-400" />}
                 </button>
               )
             })}
@@ -351,7 +351,7 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
 
         <div>
           <span className={labelClass}>Akzentfarbe</span>
-          <div className="flex flex-wrap gap-1">
+          <div className="grid grid-cols-5 justify-items-center gap-1 sm:grid-cols-10">
             {ACCENT_COLORS.map((c) => (
               <button
                 key={c}
@@ -360,7 +360,7 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
                   setColor(c)
                   setColorTouched(true)
                 }}
-                className="flex size-10 items-center justify-center"
+                className="flex size-11 items-center justify-center"
                 aria-label={`Farbe ${c}`}
                 aria-pressed={color === c}
               >

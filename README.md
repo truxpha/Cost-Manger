@@ -17,6 +17,8 @@ Minimalistische, mobile-first Progressive Web App, um das **monatliche Einkommen
 | **Fixkostenliste** | Gruppiert nach Kategorie oder sortiert nach Datum/Betrag; Schalter zum Pausieren („Was wäre wenn“) |
 | **Laufzeiten** | Optionales Ende (letzte Zahlung oder Anzahl verbleibender Raten) für Kredite, Ratenkäufe, BAföG … – mit Restbetrag; abbezahlte Posten zählen automatisch nicht mehr |
 | **Ausblick** | Diagramm des frei verfügbaren Budgets pro Monat für die kommenden Jahre; Monat antippen → Betrag, Differenz zu heute und was bis dahin abbezahlt ist |
+| **Datensicherheit** | „Rückgängig“ nach Löschen/Zurücksetzen/Import, automatische Sicherheitskopie vor großen Änderungen, Backup mit einem Tipp in „Downloads“, Erinnerung nach 30 Tagen |
+| **Android** | Installierbar mit eigenem Button, Zurück-Taste schließt Fenster, Sheets nach unten wischen, App-Verknüpfung „Hinzufügen“ (App-Symbol lange drücken), Privatsphäre-Modus (Beträge verbergen) |
 | **Schnell hinzufügen** | `+`-Button mit Vorlagen (Miete, Kredit, BAföG, Strom, Internet, Versicherung, Gym) |
 | **Einstellungen** | Währungssymbol, JSON-Export/-Import, Demo-Daten, Zurücksetzen |
 
@@ -48,17 +50,32 @@ src/
   hooks/
     useStore.ts          Zentraler Zustand + Persistenz
     useToday.ts          Aktuelles Datum (aktualisiert bei App-Fokus)
-  components/            HeroCard, UpcomingBar, CategoryBreakdown, ExpenseList/-Row,
-                         ExpenseSheet, IncomeSheet, SettingsSheet, BottomSheet, Toggle
+    useMeta.ts           Backup-Datum, Hinweise, Privatsphäre-Modus
+    useInstallPrompt.ts  „App installieren“-Button (Android/Chrome)
+    useBackClose.ts      Android-Zurück-Taste schließt Sheets
+  components/            HeroCard, UpcomingBar, CategoryBreakdown, ForecastCard, ExpenseList/-Row,
+                         ExpenseSheet, IncomeSheet, SettingsSheet, BottomSheet, Toast, NoticeCard, Toggle
 public/
-  manifest.webmanifest   PWA-Manifest
+  manifest.webmanifest   PWA-Manifest (inkl. Verknüpfung & Screenshots für den Installationsdialog)
   sw.js                  Offline-Service-Worker
   icons/                 App-Icons (SVG, 192, 512, maskable, apple-touch)
 ```
 
-## Auf dem Handy installieren
+## Veröffentlichen & auf dem Android-Handy installieren
 
-Die App muss über **HTTPS** ausgeliefert werden (z. B. GitHub Pages, Netlify, Vercel – `dist/` ist statisch, `base` ist relativ).
+Die App braucht eine **HTTPS-Adresse**. Am einfachsten über GitHub Pages (kostenlos, Workflow liegt bei):
 
-- **Android (Chrome):** Menü ⋮ → „App installieren“
-- **iOS (Safari):** Teilen → „Zum Home-Bildschirm“
+1. Auf GitHub: **Settings → Pages → Source: „GitHub Actions“** auswählen.
+2. **Actions → „Deploy auf GitHub Pages“ → „Run workflow“** starten (später automatisch bei jedem Push auf `main`).
+3. Nach ca. 1 Minute ist die App unter `https://<benutzername>.github.io/<repository>/` erreichbar.
+4. Die Adresse in **Chrome auf dem Handy** öffnen → Hinweis „Als App installieren“ bzw. Menü ⋮ → **„App installieren“**.
+
+Chrome erzeugt daraus eine echte Android-App (WebAPK): eigenes Symbol im App-Drawer, Vollbild, offline nutzbar, Updates automatisch.
+
+### Wo liegen meine Daten?
+
+- Nur auf dem Handy, im Speicher der App (kein Server, kein Konto).
+- Die App fordert **dauerhaften Speicher** an – Android löscht die Daten dann nicht von selbst.
+- Weg sind sie nur, wenn man in Chrome **Websitedaten löscht**, die App deinstalliert oder das Handy wechselt.
+  Dafür gibt es **„Backup auf dem Handy speichern“**: legt eine JSON-Datei in „Downloads“ ab, die davon unberührt bleibt
+  (und z. B. per Google Drive aufs neue Handy kommt).

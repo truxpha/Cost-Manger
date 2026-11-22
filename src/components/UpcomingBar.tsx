@@ -5,11 +5,12 @@ import type { Expense } from '../types'
 
 interface Props {
   timeline: MonthTimeline
+  nextMonth: { month: number; total: number }
   currency: string
   onOpen: (expense: Expense) => void
 }
 
-export function UpcomingBar({ timeline, currency, onOpen }: Props) {
+export function UpcomingBar({ timeline, nextMonth, currency, onOpen }: Props) {
   const { open, paid, totalDue, upcoming, today, daysInMonth, month } = timeline
   const paidShare = totalDue > 0 ? (paid / totalDue) * 100 : 0
   const dayShare = (today / daysInMonth) * 100
@@ -19,23 +20,11 @@ export function UpcomingBar({ timeline, currency, onOpen }: Props) {
       aria-label="Abbuchungen diesen Monat"
       className="rounded-3xl border border-white/10 bg-surface-1 p-4"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="flex items-center gap-1.5 text-xs font-medium text-zinc-400">
-            <CalendarClock className="size-3.5" />
-            Noch offen im {MONTHS[month - 1]}
-          </p>
-          <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums">
-            {formatMoney(open, currency)}
-          </p>
-        </div>
-        <div className="text-right text-xs text-zinc-500">
-          <p className="tabular-nums">
-            <span className="text-zinc-300">{formatMoneyShort(paid, currency)}</span> abgebucht
-          </p>
-          <p className="tabular-nums">von {formatMoneyShort(totalDue, currency)}</p>
-        </div>
-      </div>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-zinc-400">
+        <CalendarClock className="size-3.5" />
+        Noch offen im {MONTHS[month - 1]}
+      </p>
+      <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums">{formatMoney(open, currency)}</p>
 
       <div className="relative mt-3 h-1.5 rounded-full bg-white/[0.08]" aria-hidden="true">
         <div
@@ -45,8 +34,16 @@ export function UpcomingBar({ timeline, currency, onOpen }: Props) {
         <div
           className="absolute -top-1 h-3.5 w-0.5 rounded-full bg-emerald-400"
           style={{ left: `calc(${dayShare}% - 1px)` }}
-          title={`Heute: ${today}.`}
         />
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-zinc-500">
+        <span className="tabular-nums">
+          <span className="text-zinc-300">{formatMoneyShort(paid, currency)}</span> von{' '}
+          {formatMoneyShort(totalDue, currency)} abgebucht
+        </span>
+        <span className="text-right tabular-nums">
+          {MONTHS[nextMonth.month - 1]}: <span className="text-zinc-300">{formatMoneyShort(nextMonth.total, currency)}</span>
+        </span>
       </div>
 
       {upcoming.length > 0 ? (
@@ -63,7 +60,7 @@ export function UpcomingBar({ timeline, currency, onOpen }: Props) {
                 }`}
               >
                 <span
-                  className="flex size-8 flex-col items-center justify-center rounded-full text-[11px] leading-none font-bold"
+                  className="flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[11px] leading-none font-bold"
                   style={{ backgroundColor: `${expense.color}26`, color: expense.color }}
                 >
                   {isToday ? 'Heute' : `${day}.`}

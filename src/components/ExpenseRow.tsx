@@ -31,13 +31,12 @@ export function ExpenseRow({ expense, currency, onOpen, onToggle, now }: Props) 
         <span className={`min-w-0 flex-1 transition-opacity ${inactive ? 'opacity-45' : ''}`}>
           <span className="line-clamp-2 block leading-snug font-medium break-words">{expense.name}</span>
           <span className="block truncate text-xs text-zinc-500">
-            {finished ? 'Abbezahlt' : !expense.isActive ? 'Pausiert · ' : ''}
-            {!finished && billingLabel(expense)}
+            {finished ? 'Abbezahlt' : !expense.isActive ? 'Pausiert · nicht eingerechnet' : billingLabel(expense)}
           </span>
           {remaining !== null && endIdx !== null && (
             <span className="mt-0.5 block truncate text-[11px] text-zinc-400 tabular-nums">
               {remaining > 0
-                ? `Noch ${remaining} ${remaining === 1 ? 'Zahlung' : 'Zahlungen'} · bis ${formatMonthIndex(endIdx, true)}`
+                ? `Noch ${remaining} ${remaining === 1 ? 'Rate' : 'Raten'} · bis ${formatMonthIndex(endIdx, true)}`
                 : `Letzte Zahlung erledigt · endet ${formatMonthIndex(endIdx, true)}`}
             </span>
           )}
@@ -48,11 +47,11 @@ export function ExpenseRow({ expense, currency, onOpen, onToggle, now }: Props) 
           >
             {formatMoney(monthly, currency)}
           </span>
-          <span className="block text-[11px] text-zinc-500 tabular-nums">
-            {expense.billingCycle === 'monthly'
-              ? 'monatlich'
-              : `${formatMoneyShort(expense.amount, currency)} ${CYCLE_SUFFIX[expense.billingCycle]}`}
-          </span>
+          {expense.billingCycle !== 'monthly' && (
+            <span className="block text-[11px] text-zinc-500 tabular-nums">
+              {formatMoneyShort(expense.amount, currency)} {CYCLE_SUFFIX[expense.billingCycle]}
+            </span>
+          )}
         </span>
       </button>
       {finished ? (

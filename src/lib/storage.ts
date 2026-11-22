@@ -99,18 +99,115 @@ export function saveData(data: AppData): void {
   }
 }
 
-export function exportData(data: AppData): void {
+function backupFile(data: AppData): File {
   const payload = { ...data, exportedAt: new Date().toISOString() }
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
   const date = new Date().toISOString().slice(0, 10)
+  return new File([JSON.stringify(payload, null, 2)], `fixkosten-backup-${date}.json`, {
+    type: 'application/json',
+  })
+}
+
+/** Speichert das Backup als Datei (Android: Ordner „Downloads“). */
+export function downloadBackup(data: AppData): void {
+  const file = backupFile(data)
+  const url = URL.createObjectURL(file)
+  const a = document.createElement('a')
   a.href = url
-  a.download = `fixkosten-backup-${date}.json`
+  a.download = file.name
   document.body.appendChild(a)
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/** Kann der Browser eine JSON-Datei über das Teilen-Menü (z. B. Google Drive) weitergeben? */
+export function canShareBackup(): boolean {
+  try {
+    const probe = new File(['{}'], 'probe.json', { type: 'application/json' })
+    return typeof navigator.canShare === 'function' && navigator.canShare({ files: [probe] })
+  } catch {
+    return false
+  }
+}
+
+/** Teilt das Backup. Gibt false zurück, wenn der Nutzer abgebrochen hat. */
+export async function shareBackup(data: AppData): Promise<boolean> {
+  try {
+    await navigator.share({ files: [backupFile(data)], title: 'Fixkosten-Backup' })
+    return true
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return false
+    throw err
+  }
+}
+
+/* ---------- Sicherheitskopie vor großen Änderungen ---------- */
+
+const SNAPSHOT_KEY = 'fixkosten-tracker:snapshot'
+
+export interface Snapshot {
+  savedAt: string
+  reason: string
+  data: AppData
+}
+
+/** Merkt sich den Stand vor Zurücksetzen/Import/Demo, damit er wiederhergestellt werden kann. */
+export function saveSnapshot(data: AppData, reason: string): void {
+  if (data.expenses.length === 0 && data.extraIncome.length === 0) return
+  try {
+    const snapshot: Snapshot = { savedAt: new Date().toISOString(), reason, data }
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot))
+  } catch {
+    // Speicher nicht verfügbar
+  }
+}
+
+export function loadSnapshot(): Snapshot | null {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { savedAt?: unknown; reason?: unknown; data?: unknown }
+    return {
+      savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString(),
+      reason: typeof parsed.reason === 'string' ? parsed.reason : 'Änderung',
+      data: parseAppData(parsed.data),
+    }
+  } catch {
+    return null
+  }
+}
+
+/* ---------- App-Metadaten (nicht Teil des Backups) ---------- */
+
+const META_KEY = 'fixkosten-tracker:meta'
+
+export interface Meta {
+  firstUseAt: string
+  lastBackupAt?: string
+  backupReminderSnoozedUntil?: string
+  installHintDismissed?: boolean
+  privacy?: boolean
+}
+
+export function loadMeta(): Meta {
+  try {
+    const raw = localStorage.getItem(META_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Meta>
+      if (typeof parsed.firstUseAt === 'string') return parsed as Meta
+    }
+  } catch {
+    // ignorieren
+  }
+  return { firstUseAt: new Date().toISOString() }
+}
+
+export function saveMeta(meta: Meta): void {
+  try {
+    localStorage.setItem(META_KEY, JSON.stringify(meta))
+  } catch {
+    // ignorieren
+  }
 }
 
 export async function importData(file: File): Promise<AppData> {

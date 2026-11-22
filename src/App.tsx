@@ -1,4 +1,4 @@
-import { Plus, Settings, Sparkles, Wallet } from 'lucide-react'
+import { DatabaseBackup, Eye, EyeOff, Plus, Settings, Smartphone, Sparkles, Wallet } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { CategoryBreakdown } from './components/CategoryBreakdown'
 import { ExpenseList } from './components/ExpenseList'
@@ -6,13 +6,18 @@ import { ExpenseSheet } from './components/ExpenseSheet'
 import { ForecastCard } from './components/ForecastCard'
 import { HeroCard } from './components/HeroCard'
 import { IncomeSheet } from './components/IncomeSheet'
+import { NoticeCard } from './components/NoticeCard'
 import { SettingsSheet } from './components/SettingsSheet'
+import { Toast, type ToastData } from './components/Toast'
 import { UpcomingBar } from './components/UpcomingBar'
+import { useInstallPrompt } from './hooks/useInstallPrompt'
+import { useMeta } from './hooks/useMeta'
 import { useStore } from './hooks/useStore'
 import { useToday } from './hooks/useToday'
-import { computeBreakdown, computeForecast, computeSummary, computeTimeline } from './lib/calc'
-import { MONTHS } from './lib/format'
-import type { Category, Expense, SortMode } from './types'
+import { computeBreakdown, computeForecast, computeSummary, computeTimeline, nextMonthDue } from './lib/calc'
+import { formatRelativeDate, MONTHS } from './lib/format'
+import { downloadBackup, loadSnapshot, saveSnapshot } from './lib/storage'
+import type { AppData, Category, Expense, SortMode } from './types'
 
 type Sheet =
   | { type: 'expense'; expense: Expense | null }
@@ -20,16 +25,40 @@ type Sheet =
   | { type: 'settings' }
   | null
 
+const DAY = 86_400_000
+
+/** App-Verknüpfung (langes Drücken auf das App-Symbol): ?aktion=neu öffnet direkt „Hinzufügen“ */
+function consumeStartAction(): string | null {
+  const params = new URLSearchParams(window.location.search)
+  const action = params.get('aktion')
+  if (action) {
+    params.delete('aktion')
+    const query = params.toString()
+    window.history.replaceState(window.history.state, '', window.location.pathname + (query ? `?${query}` : ''))
+  }
+  return action
+}
+const START_ACTION = consumeStartAction()
+
+const hasContent = (d: AppData) => d.expenses.length > 0 || d.extraIncome.length > 0
+
 export default function App() {
   const { data, actions } = useStore()
+  const { meta, updateMeta } = useMeta()
+  const install = useInstallPrompt()
   const now = useToday()
-  const [sheet, setSheet] = useState<Sheet>(null)
+  const [sheet, setSheet] = useState<Sheet>(() =>
+    START_ACTION === 'neu' ? { type: 'expense', expense: null } : null,
+  )
   const [sort, setSort] = useState<SortMode>('category')
   const [filter, setFilter] = useState<Category | null>(null)
+  const [toast, setToast] = useState<ToastData | null>(null)
+  const [snapshot, setSnapshot] = useState(loadSnapshot)
 
   const currency = data.settings.currency
   const summary = useMemo(() => computeSummary(data, now), [data, now])
   const timeline = useMemo(() => computeTimeline(data.expenses, now), [data.expenses, now])
+  const nextMonth = useMemo(() => nextMonthDue(data.expenses, now), [data.expenses, now])
   const breakdown = useMemo(() => computeBreakdown(data.expenses, now), [data.expenses, now])
   const forecast = useMemo(() => computeForecast(data, now), [data, now])
 
@@ -38,30 +67,102 @@ export default function App() {
 
   const closeSheet = useCallback(() => setSheet(null), [])
   const openExpense = useCallback((expense: Expense | null) => setSheet({ type: 'expense', expense }), [])
+  const dismissToast = useCallback(() => setToast(null), [])
+  const showToast = (message: string, onUndo?: () => void) => setToast({ id: Date.now(), message, onUndo })
+
+  /** Große Änderungen: vorher Sicherheitskopie anlegen und „Rückgängig“ anbieten */
+  const replaceSafely = (reason: string, message: string, apply: () => void) => {
+    const previous = data
+    if (hasContent(previous)) {
+      saveSnapshot(previous, reason)
+      setSnapshot(loadSnapshot())
+    }
+    apply()
+    showToast(message, hasContent(previous) ? () => actions.replaceData(previous) : undefined)
+  }
+
+  const deleteExpense = (id: string) => {
+    const removed = data.expenses.find((e) => e.id === id)
+    actions.deleteExpense(id)
+    if (removed) showToast(`„${removed.name}“ gelöscht`, () => actions.upsertExpense(removed))
+  }
+
+  const backupNow = () => {
+    downloadBackup(data)
+    updateMeta({ lastBackupAt: new Date().toISOString() })
+    showToast('Backup gespeichert (Ordner „Downloads“)')
+  }
 
   const isEmpty = data.expenses.length === 0
+  const nowMs = now.getTime()
+  const showInstallHint = install.canInstall && !meta.installHintDismissed && !isEmpty
+  const backupDue =
+    !isEmpty &&
+    nowMs - Date.parse(meta.firstUseAt) > 3 * DAY &&
+    (!meta.lastBackupAt || nowMs - Date.parse(meta.lastBackupAt) > 30 * DAY) &&
+    (!meta.backupReminderSnoozedUntil || nowMs > Date.parse(meta.backupReminderSnoozedUntil))
 
   return (
-    <div className="mx-auto min-h-dvh max-w-lg px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-      <header className="flex items-center justify-between py-2">
+    <div
+      data-private={meta.privacy ? '' : undefined}
+      className="mx-auto min-h-dvh max-w-lg px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
+    >
+      <header className="flex items-center justify-between gap-2 py-2">
         <div>
           <p className="text-xs font-medium text-zinc-500">
             {MONTHS[now.getMonth()]} {now.getFullYear()}
           </p>
           <h1 className="text-2xl font-bold tracking-tight">Fixkosten</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => setSheet({ type: 'settings' })}
-          className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-surface-1 text-zinc-300 transition hover:text-white active:scale-95"
-          aria-label="Einstellungen"
-        >
-          <Settings className="size-5" />
-        </button>
+        <div className="flex gap-2">
+          {!isEmpty && (
+            <button
+              type="button"
+              onClick={() => updateMeta({ privacy: !meta.privacy })}
+              aria-pressed={Boolean(meta.privacy)}
+              className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-surface-1 text-zinc-300 transition hover:text-white active:scale-95"
+              aria-label={meta.privacy ? 'Beträge anzeigen' : 'Beträge verbergen'}
+            >
+              {meta.privacy ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSheet({ type: 'settings' })}
+            className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-surface-1 text-zinc-300 transition hover:text-white active:scale-95"
+            aria-label="Einstellungen"
+          >
+            <Settings className="size-5" />
+          </button>
+        </div>
       </header>
 
       <main className="mt-3 space-y-4">
         <HeroCard summary={summary} currency={currency} onEditIncome={() => setSheet({ type: 'income' })} />
+
+        {showInstallHint ? (
+          <NoticeCard
+            icon={Smartphone}
+            title="Als App installieren"
+            text="Startet wie eine normale App vom Startbildschirm – und Android schützt deine Daten besser vor automatischem Löschen."
+            actionLabel="Installieren"
+            onAction={() => void install.install()}
+            dismissLabel="Nicht jetzt"
+            onDismiss={() => updateMeta({ installHintDismissed: true })}
+          />
+        ) : (
+          backupDue && (
+            <NoticeCard
+              icon={DatabaseBackup}
+              title="Zeit für ein Backup"
+              text={`${meta.lastBackupAt ? `Letztes Backup ${formatRelativeDate(meta.lastBackupAt, now)}.` : 'Du hast noch kein Backup.'} Ein Tipp speichert eine Datei in „Downloads“ – nützlich bei Handywechsel oder gelöschten Browserdaten.`}
+              actionLabel="Backup speichern"
+              onAction={backupNow}
+              dismissLabel="Später"
+              onDismiss={() => updateMeta({ backupReminderSnoozedUntil: new Date(nowMs + 14 * DAY).toISOString() })}
+            />
+          )
+        )}
 
         {isEmpty ? (
           <section className="rounded-3xl border border-dashed border-white/15 p-6 text-center">
@@ -82,7 +183,7 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={actions.loadDemo}
+                onClick={() => replaceSafely('Demo-Daten', 'Demo-Daten geladen', actions.loadDemo)}
                 className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-white/[0.06] font-medium text-zinc-200 active:scale-[0.98]"
               >
                 <Sparkles className="size-4" /> Demo-Daten laden
@@ -91,7 +192,12 @@ export default function App() {
           </section>
         ) : (
           <>
-            <UpcomingBar timeline={timeline} currency={currency} onOpen={openExpense} />
+            <UpcomingBar
+              timeline={timeline}
+              nextMonth={nextMonth}
+              currency={currency}
+              onOpen={openExpense}
+            />
             <CategoryBreakdown
               breakdown={breakdown}
               currency={currency}
@@ -122,13 +228,15 @@ export default function App() {
         <Plus className="size-7" strokeWidth={2.5} />
       </button>
 
+      {toast && <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />}
+
       {sheet?.type === 'expense' && (
         <ExpenseSheet
           key={sheet.expense?.id ?? 'new'}
           expense={sheet.expense}
           currency={currency}
           onSave={actions.upsertExpense}
-          onDelete={actions.deleteExpense}
+          onDelete={deleteExpense}
           onClose={closeSheet}
           now={now}
         />
@@ -145,10 +253,24 @@ export default function App() {
       {sheet?.type === 'settings' && (
         <SettingsSheet
           data={data}
+          now={now}
+          lastBackupAt={meta.lastBackupAt}
+          snapshot={snapshot}
+          install={install}
           onCurrencyChange={actions.setCurrency}
-          onImport={actions.replaceData}
-          onLoadDemo={actions.loadDemo}
-          onReset={actions.reset}
+          onBackupDone={() => updateMeta({ lastBackupAt: new Date().toISOString() })}
+          onImport={(imported) =>
+            replaceSafely('Import', `${imported.expenses.length} Posten aus Backup geladen`, () =>
+              actions.replaceData(imported),
+            )
+          }
+          onRestoreSnapshot={() => {
+            if (!snapshot) return
+            const restored = snapshot.data
+            replaceSafely('Wiederherstellen', 'Vorheriger Stand wiederhergestellt', () => actions.replaceData(restored))
+          }}
+          onLoadDemo={() => replaceSafely('Demo-Daten', 'Demo-Daten geladen', actions.loadDemo)}
+          onReset={() => replaceSafely('Zurücksetzen', 'Alle Daten gelöscht', actions.reset)}
           onClose={closeSheet}
         />
       )}

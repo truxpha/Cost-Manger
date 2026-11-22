@@ -106,3 +106,22 @@ export function formatSignedMoney(value: number, currency: string): string {
   const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : '±'
   return `${sign}${formatMoney(Math.abs(rounded), currency)}`
 }
+
+const relative = new Intl.RelativeTimeFormat('de-DE', { numeric: 'auto' })
+
+/** „heute“, „gestern“, „vor 5 Tagen“, „vor 2 Monaten“ */
+export function formatRelativeDate(iso: string, now: Date): string {
+  const days = Math.round(
+    (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
+      new Date(new Date(iso).toDateString()).getTime()) /
+      86_400_000,
+  )
+  if (days < 45) return relative.format(-days, 'day')
+  return relative.format(-Math.round(days / 30), 'month')
+}
+
+export function formatDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(
+    new Date(iso),
+  )
+}

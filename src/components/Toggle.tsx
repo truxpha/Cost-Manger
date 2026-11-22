@@ -12,7 +12,11 @@ export function Toggle({ checked, onChange, label, color = '#34d399' }: Props) {
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={onChange}
+      onClick={() => {
+        // kurzes haptisches Feedback (Android)
+        navigator.vibrate?.(8)
+        onChange()
+      }}
       className="flex h-11 w-13 shrink-0 items-center justify-center"
     >
       <span

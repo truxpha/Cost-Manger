@@ -276,3 +276,10 @@ export function computeForecast(data: AppData, now: Date): Forecast {
   }
   return { startIdx, points, events }
 }
+
+/** Summe der Abbuchungen im nächsten Kalendermonat (tatsächliche Beträge) */
+export function nextMonthDue(expenses: Expense[], now: Date): { month: number; total: number } {
+  const first = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const t = computeTimeline(expenses, first)
+  return { month: t.month, total: t.totalDue }
+}
