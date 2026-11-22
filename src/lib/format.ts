@@ -132,7 +132,10 @@ export function formatRelativeDate(iso: string, now: Date): string {
 }
 
 export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(
-    new Date(iso),
-  )
+  return new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso))
 }

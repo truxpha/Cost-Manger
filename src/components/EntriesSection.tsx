@@ -32,7 +32,11 @@ export const EntriesSection = forwardRef<HTMLElement, Props>(function EntriesSec
 
   return (
     <section ref={ref} aria-label="Einträge" className="scroll-mt-4">
-      <div role="tablist" aria-label="Einträge" className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-surface-1 p-1">
+      <div
+        role="tablist"
+        aria-label="Einträge"
+        className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-surface-1 p-1"
+      >
         {tabs.map((t) => (
           <button
             key={t.id}

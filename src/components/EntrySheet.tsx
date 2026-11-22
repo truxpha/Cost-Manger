@@ -78,7 +78,11 @@ export function EntrySheet(props: Props) {
       fullHeight={isNew}
       toolbar={
         isNew && (
-          <div role="radiogroup" aria-label="Art des Eintrags" className="grid grid-cols-3 gap-1 rounded-2xl bg-white/[0.05] p-1">
+          <div
+            role="radiogroup"
+            aria-label="Art des Eintrags"
+            className="grid grid-cols-3 gap-1 rounded-2xl bg-white/[0.05] p-1"
+          >
             {KINDS.map((k) => (
               <button
                 key={k.id}

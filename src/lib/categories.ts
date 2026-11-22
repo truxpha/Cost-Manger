@@ -1,11 +1,4 @@
-import {
-  GraduationCap,
-  House,
-  Repeat,
-  Shapes,
-  ShieldPlus,
-  type LucideIcon,
-} from 'lucide-react'
+import { GraduationCap, House, Repeat, Shapes, ShieldPlus, type LucideIcon } from 'lucide-react'
 import type { Category } from '../types'
 
 export interface CategoryMeta {

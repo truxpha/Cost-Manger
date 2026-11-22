@@ -132,9 +132,7 @@ export function ExpenseForm({
   const [isActive, setIsActive] = useState(expense?.isActive ?? true)
   const curIdx = currentMonthIndex(now)
   const [hasEnd, setHasEnd] = useState(Boolean(expense?.endMonth))
-  const [endIdx, setEndIdx] = useState(() =>
-    expense?.endMonth ? parseMonthKey(expense.endMonth) : curIdx + 11,
-  )
+  const [endIdx, setEndIdx] = useState(() => (expense?.endMonth ? parseMonthKey(expense.endMonth) : curIdx + 11))
   const [countText, setCountText] = useState('')
   const [countFocused, setCountFocused] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -167,7 +165,15 @@ export function ExpenseForm({
   const buildLoan = (): LoanInfo | undefined => {
     const existing = expense?.loan
     if (!isLoan || loanBalance === null || (loanBalance <= 0 && !existing)) return undefined
-    const unchanged = balanceText === initialLoan.balance && rateText === initialLoan.rate
+    // Geänderte Rate, Termine oder Pausieren dürfen vergangene Abbuchungen nicht neu berechnen → ab heute fortschreiben
+    const scheduleUnchanged =
+      expense !== null &&
+      isActive === expense.isActive &&
+      amount === expense.amount &&
+      cycle === expense.billingCycle &&
+      billingDay === expense.billingDay &&
+      (cycle === 'monthly' || billingMonth === expense.billingMonth)
+    const unchanged = scheduleUnchanged && balanceText === initialLoan.balance && rateText === initialLoan.rate
     const loan: LoanInfo =
       existing && unchanged
         ? { balance: existing.balance, balanceDate: existing.balanceDate, original: existing.original }
@@ -234,7 +240,11 @@ export function ExpenseForm({
     if (preset.payments) {
       setEndIdx(
         endMonthForPayments(
-          { billingCycle: preset.billingCycle ?? 'monthly', billingDay: preset.billingDay, billingMonth: preset.billingMonth },
+          {
+            billingCycle: preset.billingCycle ?? 'monthly',
+            billingDay: preset.billingDay,
+            billingMonth: preset.billingMonth,
+          },
           preset.payments,
           now,
         ),
@@ -245,10 +255,22 @@ export function ExpenseForm({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    if (name.trim() === '') return focusField('expense-name')
-    if (amount === null || amount <= 0) return focusField('expense-amount')
-    if (isLoan && balanceInvalid) return focusField('loan-balance')
-    if (isLoan && rateInvalid) return focusField('loan-rate')
+    if (name.trim() === '') {
+      focusField('expense-name')
+      return
+    }
+    if (amount === null || amount <= 0) {
+      focusField('expense-amount')
+      return
+    }
+    if (isLoan && balanceInvalid) {
+      focusField('loan-balance')
+      return
+    }
+    if (isLoan && rateInvalid) {
+      focusField('loan-rate')
+      return
+    }
     const result: Expense = {
       id: expense?.id ?? createId(),
       name: name.trim(),
@@ -268,9 +290,7 @@ export function ExpenseForm({
   }
 
   const preview =
-    amount !== null && amount > 0 && cycle !== 'monthly'
-      ? monthlyEquivalent({ amount, billingCycle: cycle })
-      : null
+    amount !== null && amount > 0 && cycle !== 'monthly' ? monthlyEquivalent({ amount, billingCycle: cycle }) : null
 
   return (
     <div className="space-y-5">
@@ -349,8 +369,7 @@ export function ExpenseForm({
           {amountError && <p className="mt-1 text-xs text-rose-400">Bitte einen gültigen Betrag eingeben.</p>}
           {preview !== null && (
             <p className="mt-1 text-xs text-zinc-500">
-              Entspricht <span className="text-zinc-300 tabular-nums">{formatMoney(preview, currency)}</span> pro
-              Monat
+              Entspricht <span className="text-zinc-300 tabular-nums">{formatMoney(preview, currency)}</span> pro Monat
             </p>
           )}
         </div>
@@ -415,7 +434,10 @@ export function ExpenseForm({
         </div>
         {cycle === 'quarterly' && (
           <p className="-mt-3 text-xs text-zinc-500">
-            Abbuchung in: {quarterMonths(billingMonth).map((m) => MONTHS_SHORT[m - 1]).join(', ')}
+            Abbuchung in:{' '}
+            {quarterMonths(billingMonth)
+              .map((m) => MONTHS_SHORT[m - 1])
+              .join(', ')}
           </p>
         )}
 
@@ -436,36 +458,36 @@ export function ExpenseForm({
         )}
 
         {mode !== 'loan' && (
-        <div>
-          <span className={labelClass}>Kategorie</span>
-          <div role="radiogroup" className="grid grid-cols-2 gap-1.5">
-            {CATEGORIES.map((meta, i) => {
-              const Icon = meta.icon
-              const selected = category === meta.id
-              return (
-                <button
-                  key={meta.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => changeCategory(meta.id)}
-                  className={`flex min-h-12 items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-left text-[13px] leading-tight font-medium transition ${
-                    i === CATEGORIES.length - 1 ? 'col-span-2' : ''
-                  } ${selected ? 'border-white/40 bg-white/[0.09]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
-                >
-                  <span
-                    className="flex size-7 shrink-0 items-center justify-center rounded-lg"
-                    style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}
+          <div>
+            <span className={labelClass}>Kategorie</span>
+            <div role="radiogroup" className="grid grid-cols-2 gap-1.5">
+              {CATEGORIES.map((meta, i) => {
+                const Icon = meta.icon
+                const selected = category === meta.id
+                return (
+                  <button
+                    key={meta.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => changeCategory(meta.id)}
+                    className={`flex min-h-12 items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-left text-[13px] leading-tight font-medium transition ${
+                      i === CATEGORIES.length - 1 ? 'col-span-2' : ''
+                    } ${selected ? 'border-white/40 bg-white/[0.09]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
                   >
-                    <Icon className="size-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">{meta.id}</span>
-                  {selected && <Check className="size-4 shrink-0 text-emerald-400" />}
-                </button>
-              )
-            })}
+                    <span
+                      className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}
+                    >
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">{meta.id}</span>
+                    {selected && <Check className="size-4 shrink-0 text-emerald-400" />}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </div>
         )}
 
         <div>
@@ -538,7 +560,9 @@ export function ExpenseForm({
                       <>
                         {' '}
                         · Restbetrag{' '}
-                        <span className="text-zinc-200 tabular-nums">{formatMoney(remainingCount * amount, currency)}</span>
+                        <span className="text-zinc-200 tabular-nums">
+                          {formatMoney(remainingCount * amount, currency)}
+                        </span>
                       </>
                     ) : null}
                     . Ab {MONTHS[fromMonthIndex(endIdx + 1).month - 1]} {fromMonthIndex(endIdx + 1).year} hast du{' '}

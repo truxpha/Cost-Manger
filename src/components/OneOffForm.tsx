@@ -36,8 +36,14 @@ export function OneOffForm({ item, currency, now, recentNames, onSave, onClose }
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    if (name.trim() === '') return focusField('oneoff-name')
-    if (amount === null || amount <= 0) return focusField('oneoff-amount')
+    if (name.trim() === '') {
+      focusField('oneoff-name')
+      return
+    }
+    if (amount === null || amount <= 0) {
+      focusField('oneoff-amount')
+      return
+    }
     const result: OneOff = { id: item?.id ?? createId(), name: name.trim(), amount, month: toMonthKey(monthIdx) }
     if (note.trim()) result.note = note.trim()
     onSave(result)
@@ -47,8 +53,8 @@ export function OneOffForm({ item, currency, now, recentNames, onSave, onClose }
   return (
     <form id={ONEOFF_FORM_ID} onSubmit={handleSubmit} className="space-y-5" noValidate>
       <p className="text-xs text-zinc-500">
-        Zählt nur in einem Monat – z. B. Geld an Familie, Geschenk, Reparatur. Wird im Ausblick und bei „Übrig
-        diesen Monat“ abgezogen.
+        Zählt nur in einem Monat – z. B. Geld an Familie, Geschenk, Reparatur. Wird im Ausblick und bei „Übrig diesen
+        Monat“ abgezogen.
       </p>
 
       {!item && (

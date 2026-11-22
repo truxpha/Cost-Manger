@@ -62,9 +62,7 @@ export function ForecastCard({ forecast, currency }: Props) {
       if (i > 0) d += ` V${y(p.left)}`
       d += ` H${x(i + 1)}`
     })
-    const years = points
-      .map((p, i) => ({ i, p }))
-      .filter(({ p, i }) => p.idx % 12 === 0 && x(i) - x(0) > 44)
+    const years = points.map((p, i) => ({ i, p })).filter(({ p, i }) => p.idx % 12 === 0 && x(i) - x(0) > 44)
     return { ticks, x, y, band, d, years }
   }, [points, width])
 
@@ -215,9 +213,7 @@ export function ForecastCard({ forecast, currency }: Props) {
           {sel > 0 && finishedBy.length > 0 && (
             <p className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-400/[0.07] px-3 py-2 text-xs text-zinc-300">
               <CalendarCheck className="mt-px size-4 shrink-0 text-emerald-400" />
-              <span>
-                Bis dahin abbezahlt: {finishedBy.map((e) => e.expense.name).join(', ')}
-              </span>
+              <span>Bis dahin abbezahlt: {finishedBy.map((e) => e.expense.name).join(', ')}</span>
             </p>
           )}
           <h3 className="mt-4 text-xs font-medium text-zinc-400">Laufzeiten</h3>

@@ -35,9 +35,7 @@ export function RepaymentBox({ title, currency, monthLabel, max, onSubmit }: Pro
           inputMode="decimal"
           autoComplete="off"
         />
-        <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-zinc-500">
-          {currency}
-        </span>
+        <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-zinc-500">{currency}</span>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="text-xs text-zinc-400">Als Einmalausgabe im {monthLabel} abziehen</p>

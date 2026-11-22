@@ -32,9 +32,7 @@ export function useStore() {
       const exists = d.expenses.some((e) => e.id === expense.id)
       return {
         ...d,
-        expenses: exists
-          ? d.expenses.map((e) => (e.id === expense.id ? expense : e))
-          : [...d.expenses, expense],
+        expenses: exists ? d.expenses.map((e) => (e.id === expense.id ? expense : e)) : [...d.expenses, expense],
       }
     })
   }, [])
@@ -146,5 +144,3 @@ export function useStore() {
 
   return { data, actions, saveFailed }
 }
-
-export type StoreActions = ReturnType<typeof useStore>['actions']

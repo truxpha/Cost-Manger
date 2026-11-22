@@ -16,10 +16,7 @@ export function UpcomingBar({ timeline, nextMonth, currency, onOpen }: Props) {
   const dayShare = (today / daysInMonth) * 100
 
   return (
-    <section
-      aria-label="Abbuchungen diesen Monat"
-      className="rounded-3xl border border-white/10 bg-surface-1 p-4"
-    >
+    <section aria-label="Abbuchungen diesen Monat" className="rounded-3xl border border-white/10 bg-surface-1 p-4">
       <p className="flex items-center gap-1.5 text-xs font-medium text-zinc-400">
         <CalendarClock className="size-3.5" />
         Noch offen im {MONTHS[month - 1]}
@@ -42,7 +39,8 @@ export function UpcomingBar({ timeline, nextMonth, currency, onOpen }: Props) {
           {formatMoneyShort(totalDue, currency)} abgebucht
         </span>
         <span className="text-right tabular-nums">
-          {MONTHS[nextMonth.month - 1]}: <span className="text-zinc-300">{formatMoneyShort(nextMonth.total, currency)}</span>
+          {MONTHS[nextMonth.month - 1]}:{' '}
+          <span className="text-zinc-300">{formatMoneyShort(nextMonth.total, currency)}</span>
         </span>
       </div>
 
@@ -66,9 +64,7 @@ export function UpcomingBar({ timeline, nextMonth, currency, onOpen }: Props) {
                   {isToday ? 'Heute' : `${day}.`}
                 </span>
                 <span className="max-w-[9rem] truncate font-medium">{expense.name}</span>
-                <span className="text-zinc-400 tabular-nums">
-                  {formatMoneyShort(expense.amount, currency)}
-                </span>
+                <span className="text-zinc-400 tabular-nums">{formatMoneyShort(expense.amount, currency)}</span>
               </button>
             </li>
           ))}

@@ -17,7 +17,7 @@ const MAX_MONTHS = 50 * 12
 const EPSILON = 0.005
 
 /** Farbe für Schulden ohne festen Posten (z. B. privat) */
-export const PRIVATE_DEBT_COLOR = '#fcd34d'
+const PRIVATE_DEBT_COLOR = '#fcd34d'
 
 /* ---------- Datumshilfen ---------- */
 
@@ -28,7 +28,7 @@ export function toDateKey(date: Date): string {
   return `${date.getFullYear()}-${m}-${d}`
 }
 
-export function parseDateKey(key: string): Date {
+function parseDateKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)
   return new Date(y, m - 1, d)
 }
@@ -36,7 +36,7 @@ export function parseDateKey(key: string): Date {
 /* ---------- Kredite (Fixkosten mit Restschuld) ---------- */
 
 /** Zählt ein Fixkosten-Posten als Schuld? (Kredit-Details oder Kategorie „Kredite & Bildung“) */
-export function isLoanExpense(expense: Expense): boolean {
+function isLoanExpense(expense: Expense): boolean {
   return Boolean(expense.loan) || expense.category === 'Kredite & Bildung'
 }
 
@@ -68,6 +68,8 @@ export interface LoanProjection {
 export function projectLoan(expense: Expense, at: Date): LoanProjection {
   const loan = expense.loan
   if (!loan) return { balance: 0, payoffIdx: null, interest: 0 }
+  // Pausiert („Was wäre wenn“) = es wird nicht gezahlt → Restschuld bleibt stehen
+  if (!expense.isActive) return { balance: loan.balance, payoffIdx: null, interest: 0 }
   const monthlyRate = (loan.interestRate ?? 0) / 100 / 12
   let balance = loan.balance
   let last = parseDateKey(loan.balanceDate)
@@ -96,12 +98,15 @@ export function projectLoan(expense: Expense, at: Date): LoanProjection {
   }
 
   // Schleife beendet: Laufzeitende erreicht (Restschuld wird mit der letzten Rate fällig) oder nie abbezahlt
-  const endedByContract = expense.endMonth !== undefined && lastIdx !== null
-  return {
-    balance: Math.max(0, current ?? balance),
-    payoffIdx: endedByContract ? lastIdx : null,
-    interest,
+  if (expense.endMonth !== undefined) {
+    // Nach der letzten vertraglichen Rate ist nichts mehr offen
+    return {
+      balance: current === null ? 0 : Math.max(0, current),
+      payoffIdx: lastIdx ?? parseMonthKey(expense.endMonth),
+      interest,
+    }
   }
+  return { balance: Math.max(0, current ?? balance), payoffIdx: null, interest }
 }
 
 /**
@@ -114,8 +119,11 @@ export function withLoanEnds(expenses: Expense[], now: Date): Expense[] {
     const { payoffIdx } = projectLoan(expense, now)
     if (payoffIdx === null) return expense
     const endIdx = expense.endMonth ? parseMonthKey(expense.endMonth) : null
-    // Ohne Zinssatz wäre das berechnete Ende zu früh → vertragliches Ende behalten
-    if (endIdx !== null && (expense.loan.interestRate === undefined || payoffIdx >= endIdx)) return expense
+    // Ohne Zinssatz wäre das berechnete Ende zu früh → vertragliches Ende behalten (außer bereits abbezahlt)
+    const paidOff = expense.loan.balance <= EPSILON
+    if (endIdx !== null && ((expense.loan.interestRate === undefined && !paidOff) || payoffIdx >= endIdx)) {
+      return expense
+    }
     return { ...expense, endMonth: toMonthKey(payoffIdx) }
   })
 }
@@ -316,7 +324,11 @@ export function simulatePlan(entries: DebtEntry[], options: PlanOptions, now: Da
     for (const s of state) {
       const expense = s.entry.expense
       if (s.balance <= 0 || !expense || !isDueInMonth(expense, month)) continue
-      if (m === 0 && effectiveDay(expense, year, month) < now.getDate()) continue
+      if (m === 0) {
+        const day = effectiveDay(expense, year, month)
+        // Bei Krediten hat projectLoan die heutige Rate schon von der Restschuld abgezogen
+        if (day < now.getDate() || (expense.loan && day === now.getDate())) continue
+      }
       s.balance -= Math.min(expense.amount, s.balance)
       settle(s)
     }

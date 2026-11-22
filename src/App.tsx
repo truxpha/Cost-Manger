@@ -50,11 +50,7 @@ import { createId } from './lib/id'
 import { downloadBackup, hasContent, loadSnapshot, saveSnapshot } from './lib/storage'
 import type { Category, Debt, Expense, SortMode } from './types'
 
-type Sheet =
-  | { type: 'entry'; target: EntryTarget }
-  | { type: 'income' }
-  | { type: 'settings' }
-  | null
+type Sheet = { type: 'entry'; target: EntryTarget } | { type: 'income' } | { type: 'settings' } | null
 
 type View = 'budget' | 'debts'
 
@@ -219,6 +215,21 @@ export default function App() {
       balance <= 0 ? `${expense.name} ist abbezahlt` : `${formatMoney(amount, currency)} Sondertilgung erfasst`,
       undoTo(previous),
     )
+  }
+
+  /** Pausierte Kredite werden nicht bezahlt: Restschuld beim Pausieren und Fortsetzen auf heute festschreiben */
+  const toggleExpense = (id: string) => {
+    const expense = data.expenses.find((e) => e.id === id)
+    if (!expense?.loan) {
+      actions.toggleExpense(id)
+      return
+    }
+    const balance = Math.round(projectLoan(expense, now).balance * 100) / 100
+    actions.upsertExpense({
+      ...expense,
+      isActive: !expense.isActive,
+      loan: { ...expense.loan, balance, balanceDate: toDateKey(now) },
+    })
   }
 
   /** Kündigungs-Erinnerung erledigt */
@@ -387,7 +398,7 @@ export default function App() {
         onSortChange={setSort}
         filter={activeFilter}
         onClearFilter={() => setFilter(null)}
-        onToggleExpense={actions.toggleExpense}
+        onToggleExpense={toggleExpense}
         onOpenExpense={openExpense}
         onOpenOneOff={(item) => openEntry({ kind: 'oneoff', item })}
         onAdd={(kind) => openEntry({ kind, item: null })}
@@ -478,8 +489,8 @@ export default function App() {
             role="alert"
             className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-200"
           >
-            Änderungen konnten nicht gespeichert werden (Speicher voll oder privater Modus). Bitte ein Backup
-            speichern, bevor du die App schließt.
+            Änderungen konnten nicht gespeichert werden (Speicher voll oder privater Modus). Bitte ein Backup speichern,
+            bevor du die App schließt.
           </p>
         )}
 

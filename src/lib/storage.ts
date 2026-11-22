@@ -57,9 +57,7 @@ function sanitizeExpense(raw: unknown): Expense | null {
     billingDay: clampInt(toNumber(raw.billingDay, 1), 1, 31),
     category,
     color:
-      typeof raw.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(raw.color)
-        ? raw.color
-        : getCategory(category).color,
+      typeof raw.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(raw.color) ? raw.color : getCategory(category).color,
     isActive: raw.isActive !== false,
   }
   if (typeof raw.endMonth === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(raw.endMonth)) {
@@ -140,9 +138,7 @@ export function parseAppData(raw: unknown): AppData {
   }
   const settings = isRecord(raw.settings) ? raw.settings : {}
   const currency =
-    typeof settings.currency === 'string' && settings.currency.trim()
-      ? settings.currency.trim().slice(0, 4)
-      : '€'
+    typeof settings.currency === 'string' && settings.currency.trim() ? settings.currency.trim().slice(0, 4) : '€'
   return {
     version: 1,
     netIncome: Math.max(0, toNumber(raw.netIncome, 0)),
@@ -150,9 +146,7 @@ export function parseAppData(raw: unknown): AppData {
       ? raw.extraIncome.map(sanitizeIncome).filter((i): i is IncomeItem => i !== null)
       : [],
     expenses: raw.expenses.map(sanitizeExpense).filter((e): e is Expense => e !== null),
-    oneOffs: Array.isArray(raw.oneOffs)
-      ? raw.oneOffs.map(sanitizeOneOff).filter((o): o is OneOff => o !== null)
-      : [],
+    oneOffs: Array.isArray(raw.oneOffs) ? raw.oneOffs.map(sanitizeOneOff).filter((o): o is OneOff => o !== null) : [],
     debts: Array.isArray(raw.debts) ? raw.debts.map(sanitizeDebt).filter((d): d is Debt => d !== null) : [],
     settings: { currency, debtPlan: sanitizeDebtPlan(settings.debtPlan) },
   }
@@ -241,9 +235,7 @@ export async function shareBackup(data: AppData): Promise<boolean> {
 const SNAPSHOT_KEY = 'fixkosten-tracker:snapshot'
 
 export function hasContent(data: AppData): boolean {
-  return (
-    data.expenses.length > 0 || data.extraIncome.length > 0 || data.oneOffs.length > 0 || data.debts.length > 0
-  )
+  return data.expenses.length > 0 || data.extraIncome.length > 0 || data.oneOffs.length > 0 || data.debts.length > 0
 }
 
 export interface Snapshot {

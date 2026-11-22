@@ -22,7 +22,6 @@ interface DraftItem {
   isActive: boolean
 }
 
-
 export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose }: Props) {
   const [netText, setNetText] = useState(amountToInput(netIncome))
   const [items, setItems] = useState<DraftItem[]>(() =>
@@ -34,9 +33,7 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
   const netInvalid = netText.trim() !== '' && netParsed === null
   const net = netParsed ?? 0
   const isItemInvalid = (i: DraftItem) => i.amountText.trim() !== '' && parseAmount(i.amountText) === null
-  const extraTotal = items
-    .filter((i) => i.isActive)
-    .reduce((sum, i) => sum + (parseAmount(i.amountText) ?? 0), 0)
+  const extraTotal = items.filter((i) => i.isActive).reduce((sum, i) => sum + (parseAmount(i.amountText) ?? 0), 0)
 
   const updateItem = (id: string, patch: Partial<DraftItem>) =>
     setItems((list) => list.map((i) => (i.id === id ? { ...i, ...patch } : i)))
@@ -45,7 +42,10 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
     e.preventDefault()
     setSubmitted(true)
     // Ungültige Eingaben nicht stillschweigend als 0 speichern bzw. verwerfen
-    if (netInvalid) return focusField('net-income')
+    if (netInvalid) {
+      focusField('net-income')
+      return
+    }
     if (items.some(isItemInvalid)) return
     const cleaned: IncomeItem[] = items
       .map((i) => ({
@@ -152,9 +152,7 @@ export function IncomeSheet({ netIncome, extraIncome, currency, onSave, onClose 
           </ul>
           <button
             type="button"
-            onClick={() =>
-              setItems((list) => [...list, { id: createId(), name: '', amountText: '', isActive: true }])
-            }
+            onClick={() => setItems((list) => [...list, { id: createId(), name: '', amountText: '', isActive: true }])}
             className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 text-sm font-medium text-zinc-300 transition hover:bg-white/[0.04]"
           >
             <Plus className="size-4" /> Einkommensquelle hinzufügen

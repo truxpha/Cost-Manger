@@ -51,9 +51,7 @@ export interface Summary {
 }
 
 export function computeSummary(data: AppData, now: Date): Summary {
-  const extraIncome = data.extraIncome
-    .filter((i) => i.isActive)
-    .reduce((sum, i) => sum + i.amount, 0)
+  const extraIncome = data.extraIncome.filter((i) => i.isActive).reduce((sum, i) => sum + i.amount, 0)
   const totalIncome = data.netIncome + extraIncome
   const active = data.expenses.filter((e) => countsNow(e, now))
   const fixedCosts = active.reduce((sum, e) => sum + monthlyEquivalent(e), 0)
@@ -182,7 +180,7 @@ export function toMonthKey(idx: number): string {
 }
 
 /** Läuft der Posten im Monat idx noch (Laufzeitende nicht überschritten)? */
-export function isRunning(expense: Expense, idx: number): boolean {
+function isRunning(expense: Expense, idx: number): boolean {
   return !expense.endMonth || idx <= parseMonthKey(expense.endMonth)
 }
 
@@ -258,8 +256,7 @@ export interface Forecast {
 /** Frei verfügbares Budget pro Monat für die kommenden Monate, unter Berücksichtigung von Laufzeitenden */
 export function computeForecast(data: AppData, now: Date): Forecast {
   const startIdx = currentMonthIndex(now)
-  const income =
-    data.netIncome + data.extraIncome.filter((i) => i.isActive).reduce((s, i) => s + i.amount, 0)
+  const income = data.netIncome + data.extraIncome.filter((i) => i.isActive).reduce((s, i) => s + i.amount, 0)
   const active = data.expenses.filter((e) => e.isActive)
 
   const events: PayoffEvent[] = active
@@ -300,7 +297,7 @@ export function nextMonthDue(expenses: Expense[], now: Date): { month: number; t
 }
 
 /** Summe der Einmalausgaben im Monat idx */
-export function oneOffTotal(data: Pick<AppData, 'oneOffs'>, idx: number): number {
+function oneOffTotal(data: Pick<AppData, 'oneOffs'>, idx: number): number {
   const key = toMonthKey(idx)
   return data.oneOffs.filter((o) => o.month === key).reduce((sum, o) => sum + o.amount, 0)
 }

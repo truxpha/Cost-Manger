@@ -50,7 +50,10 @@ export function OneOffList({ items, currency, now, onOpen, onAdd }: Props) {
       {groups.map(({ idx, list, total }) => {
         const past = idx < cur
         return (
-          <div key={idx} className={`rounded-3xl border border-white/10 bg-surface-1 p-1.5 ${past ? 'opacity-60' : ''}`}>
+          <div
+            key={idx}
+            className={`rounded-3xl border border-white/10 bg-surface-1 p-1.5 ${past ? 'opacity-60' : ''}`}
+          >
             <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-xs">
               <span className="font-medium text-zinc-400">
                 {idx === cur ? `Dieser Monat · ${formatMonthIndex(idx)}` : formatMonthIndex(idx)}

@@ -1,11 +1,6 @@
 export type BillingCycle = 'monthly' | 'quarterly' | 'yearly'
 
-export type Category =
-  | 'Wohnen'
-  | 'Kredite & Bildung'
-  | 'Versicherung & Gesundheit'
-  | 'Verträge & Abos'
-  | 'Sonstiges'
+export type Category = 'Wohnen' | 'Kredite & Bildung' | 'Versicherung & Gesundheit' | 'Verträge & Abos' | 'Sonstiges'
 
 /** Kredit-Details für die Schuldenübersicht (optional) */
 export interface LoanInfo {

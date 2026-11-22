@@ -1,7 +1,14 @@
 import { ChevronRight, Info, Target } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { simulatePlan, type DebtEntry, type PlanResult } from '../lib/debts'
-import { amountToInput, formatMoney, formatMoneyShort, formatMonthIndex, formatPercent, parseAmount } from '../lib/format'
+import {
+  amountToInput,
+  formatMoney,
+  formatMoneyShort,
+  formatMonthIndex,
+  formatPercent,
+  parseAmount,
+} from '../lib/format'
 import { cleanAmountInput, inputBaseClass } from '../lib/ui'
 import type { DebtPlan, DebtStrategy } from '../types'
 
@@ -29,8 +36,11 @@ const rateLabel = (entry: DebtEntry) =>
   entry.rate !== null ? formatPercent(entry.rate / 100) : entry.estimated ? 'aus Restraten' : 'Zins fehlt'
 
 export function DebtPlanCard({ entries, plan, main, freeBudget, currency, now, onPlanChange, onOpen }: Props) {
-  const [extraText, setExtraText] = useState(EXTRA_CHIPS.includes(plan.extra) ? '' : amountToInput(plan.extra))
   const { strategy, extra } = plan
+  const isCustom = !EXTRA_CHIPS.includes(extra)
+  // Während der Eingabe zählt der getippte Text, sonst der gespeicherte Wert (z. B. nach „Rückgängig“)
+  const [draft, setDraft] = useState<string | null>(null)
+  const extraText = draft ?? (isCustom ? amountToInput(extra) : '')
 
   // Vergleiche: ohne Extra-Betrag und mit der jeweils anderen Strategie
   const { noExtra, other } = useMemo(() => {
@@ -64,7 +74,9 @@ export function DebtPlanCard({ entries, plan, main, freeBudget, currency, now, o
             aria-checked={strategy === s.id}
             onClick={() => onPlanChange({ ...plan, strategy: s.id })}
             className={`rounded-2xl border px-3 py-2.5 text-left transition ${
-              strategy === s.id ? 'border-white/40 bg-white/[0.09]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
+              strategy === s.id
+                ? 'border-white/40 bg-white/[0.09]'
+                : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
             }`}
           >
             <span className="block text-sm font-semibold">{s.title}</span>
@@ -80,13 +92,10 @@ export function DebtPlanCard({ entries, plan, main, freeBudget, currency, now, o
             <button
               key={value}
               type="button"
-              aria-pressed={extra === value && extraText === ''}
-              onClick={() => {
-                setExtraText('')
-                setExtra(value)
-              }}
+              aria-pressed={!isCustom && extra === value}
+              onClick={() => setExtra(value)}
               className={`h-10 min-w-0 flex-1 rounded-xl text-sm font-semibold transition ${
-                extra === value && extraText === ''
+                !isCustom && extra === value
                   ? 'bg-white text-zinc-950'
                   : 'bg-white/[0.05] text-zinc-300 hover:bg-white/[0.08]'
               }`}
@@ -96,12 +105,15 @@ export function DebtPlanCard({ entries, plan, main, freeBudget, currency, now, o
           ))}
           <input
             aria-label="Eigener Betrag pro Monat"
-            className={`${inputBaseClass} h-10 w-20 shrink-0 px-2.5 text-center text-sm ${extraText ? 'border-white/40' : ''}`}
+            className={`${inputBaseClass} h-10 w-20 shrink-0 px-2.5 text-center text-sm ${isCustom ? 'border-white/40' : ''}`}
             value={extraText}
+            onFocus={() => setDraft(extraText)}
+            onBlur={() => setDraft(null)}
             onChange={(e) => {
               const text = cleanAmountInput(e.target.value)
-              setExtraText(text)
-              const value = parseAmount(text)
+              setDraft(text)
+              // Leeres Feld = kein Extra-Betrag, sonst bliebe der alte Wert unsichtbar aktiv
+              const value = text.trim() === '' ? 0 : parseAmount(text)
               if (value !== null) setExtra(value)
             }}
             placeholder="eigener"
@@ -194,10 +206,15 @@ export function DebtPlanCard({ entries, plan, main, freeBudget, currency, now, o
                     {rateLabel(entry)}
                     {entry.payment > 0 ? ` · Rate ${formatMoneyShort(entry.payment, currency)}` : ' · keine feste Rate'}
                     {' · '}
-                    {payoff !== null && payoff !== undefined ? `frei ab ${formatMonthIndex(payoff + 1, true)}` : 'offen'}
+                    {payoff !== null && payoff !== undefined
+                      ? `frei ab ${formatMonthIndex(payoff + 1, true)}`
+                      : 'offen'}
                   </span>
                   {progress !== null && progress > 0 && (
-                    <span className="col-span-2 mt-1.5 block h-1 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden="true">
+                    <span
+                      className="col-span-2 mt-1.5 block h-1 overflow-hidden rounded-full bg-white/[0.08]"
+                      aria-hidden="true"
+                    >
                       <span
                         className="block h-full rounded-full"
                         style={{ width: `${Math.round(progress * 100)}%`, backgroundColor: entry.color }}

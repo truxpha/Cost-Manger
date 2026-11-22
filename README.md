@@ -13,35 +13,35 @@ Zwei Bereiche, oben umschaltbar: **Budget** und **Schulden**.
 
 ### Budget
 
-| Bereich | Beschreibung |
-| --- | --- |
-| **Übersicht** | Frei verfügbares Budget (Netto – Fixkosten), „Übrig im Monat“ nach Einmalausgaben, Fixkosten-Quote |
-| **Noch offen diesen Monat** | Abbuchungen ab heute, Vorschau auf den nächsten Monat |
-| **Kategorien** | Verteilung als Balken; Antippen filtert die Liste |
-| **Ausblick** | Was pro Monat übrig bleibt – mit Stufen, wenn Kredite, Raten oder Kreditkarten abbezahlt sind |
-| **Fixkosten** | Sortierbar, Schalter für „Was wäre wenn“, optionale Laufzeit (letzte Rate oder Anzahl Raten) |
-| **Einmalig** | Ausgaben nur für einen Monat (z. B. „Geld an Mama“), fließen in „Übrig“ und Ausblick ein |
-| **Vorlagen** | Miete, Strom, Internet, PKV, Kredit, Klarna, Kreditkarte, BAföG … mit kurzen Hinweisen |
+| Bereich                     | Beschreibung                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Übersicht**               | Frei verfügbares Budget (Netto – Fixkosten), „Übrig im Monat“ nach Einmalausgaben, Fixkosten-Quote |
+| **Noch offen diesen Monat** | Abbuchungen ab heute, Vorschau auf den nächsten Monat                                              |
+| **Kategorien**              | Verteilung als Balken; Antippen filtert die Liste                                                  |
+| **Ausblick**                | Was pro Monat übrig bleibt – mit Stufen, wenn Kredite, Raten oder Kreditkarten abbezahlt sind      |
+| **Fixkosten**               | Sortierbar, Schalter für „Was wäre wenn“, optionale Laufzeit (letzte Rate oder Anzahl Raten)       |
+| **Einmalig**                | Ausgaben nur für einen Monat (z. B. „Geld an Mama“), fließen in „Übrig“ und Ausblick ein           |
+| **Vorlagen**                | Miete, Strom, Internet, PKV, Kredit, Klarna, Kreditkarte, BAföG … mit kurzen Hinweisen             |
 
 ### Schulden
 
-| Bereich | Beschreibung |
-| --- | --- |
-| **Gesamtübersicht** | Schulden gesamt, Raten und Zinsen pro Monat, bereits getilgt, Datum „schuldenfrei“ |
-| **Kredite & Kreditkarten** | Fixkosten mit optionaler Restschuld + Zinssatz – die Restschuld sinkt automatisch mit jeder Rate; das Budget weiß, wann die Rate wegfällt |
-| **Schulden ohne Rate** | z. B. Familie oder Dispo, optional mit Zinssatz; Rückzahlungen erfassen (optional als Einmalausgabe) |
-| **Tilgungsplan** | Lawine (höchster Zins zuerst) oder Schneeball (kleinste Schuld zuerst), Extra-Betrag pro Monat, frei gewordene Raten fließen in die nächste Schuld; zeigt Reihenfolge, Zinsen und Ersparnis |
-| **Sondertilgung** | Direkt am Kredit erfassen; Hinweis, wohin sie am meisten bringt |
-| **Umschuldung** | Ausgewählte Schulden mit neuem Zinssatz und Laufzeit durchrechnen: neue Rate, Zinsen, Ersparnis |
-| **Kündigen** | Erinnerung, wenn eine markierte Kreditkarte / ein Dispo abbezahlt ist |
-| **Warnungen** | Wenn eine Rate nicht einmal die Zinsen deckt |
+| Bereich                    | Beschreibung                                                                                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Gesamtübersicht**        | Schulden gesamt, Raten und Zinsen pro Monat, bereits getilgt, Datum „schuldenfrei“                                                                                                          |
+| **Kredite & Kreditkarten** | Fixkosten mit optionaler Restschuld + Zinssatz – die Restschuld sinkt automatisch mit jeder Rate; das Budget weiß, wann die Rate wegfällt                                                   |
+| **Schulden ohne Rate**     | z. B. Familie oder Dispo, optional mit Zinssatz; Rückzahlungen erfassen (optional als Einmalausgabe)                                                                                        |
+| **Tilgungsplan**           | Lawine (höchster Zins zuerst) oder Schneeball (kleinste Schuld zuerst), Extra-Betrag pro Monat, frei gewordene Raten fließen in die nächste Schuld; zeigt Reihenfolge, Zinsen und Ersparnis |
+| **Sondertilgung**          | Direkt am Kredit erfassen; Hinweis, wohin sie am meisten bringt                                                                                                                             |
+| **Umschuldung**            | Ausgewählte Schulden mit neuem Zinssatz und Laufzeit durchrechnen: neue Rate, Zinsen, Ersparnis                                                                                             |
+| **Kündigen**               | Erinnerung, wenn eine markierte Kreditkarte / ein Dispo abbezahlt ist                                                                                                                       |
+| **Warnungen**              | Wenn eine Rate nicht einmal die Zinsen deckt                                                                                                                                                |
 
 ### Daten & App
 
-| Bereich | Beschreibung |
-| --- | --- |
+| Bereich             | Beschreibung                                                                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Datensicherheit** | „Rückgängig“ nach Löschen/Zurücksetzen/Import, automatische Sicherheitskopie, Backup mit einem Tipp in „Downloads“, Erinnerung nach 30 Tagen |
-| **Android** | Installierbar, Zurück-Taste schließt Fenster, Sheets nach unten wischen, App-Verknüpfungen, Privatsphäre-Modus |
+| **Android**         | Installierbar, Zurück-Taste schließt Fenster, Sheets nach unten wischen, App-Verknüpfungen, Privatsphäre-Modus                               |
 
 Quartalsweise und jährliche Beträge werden in der Übersicht automatisch auf einen Monatswert normalisiert (`/3` bzw. `/12`).
 

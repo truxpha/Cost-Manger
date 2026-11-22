@@ -1,13 +1,4 @@
-import {
-  CheckCircle2,
-  Download,
-  History,
-  RotateCcw,
-  Share2,
-  Smartphone,
-  Sparkles,
-  Upload,
-} from 'lucide-react'
+import { CheckCircle2, Download, History, RotateCcw, Share2, Smartphone, Sparkles, Upload } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { formatDateTime, formatRelativeDate } from '../lib/format'
 import { canShareBackup, downloadBackup, hasContent, importData, shareBackup, type Snapshot } from '../lib/storage'

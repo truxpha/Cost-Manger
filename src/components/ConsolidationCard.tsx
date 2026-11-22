@@ -149,7 +149,9 @@ export function ConsolidationCard({ debts, currency, now }: Props) {
               <Row
                 label="Schuldenfrei"
                 value={formatMonthIndex(result.newDebtFreeIdx, true)}
-                hint={result.oldDebtFreeIdx !== null ? `bisher ${formatMonthIndex(result.oldDebtFreeIdx, true)}` : undefined}
+                hint={
+                  result.oldDebtFreeIdx !== null ? `bisher ${formatMonthIndex(result.oldDebtFreeIdx, true)}` : undefined
+                }
               />
               {saved !== null && (
                 <p
