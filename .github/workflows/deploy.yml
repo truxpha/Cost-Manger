@@ -1,10 +1,10 @@
 # Baut die App und veröffentlicht sie auf GitHub Pages (HTTPS, nötig für die Installation als App).
-# Einmalig: Repository → Settings → Pages → Source: „GitHub Actions“.
+# Läuft automatisch bei jedem Push. Einmalig nötig: Repository → Settings → Pages → Source: „GitHub Actions“.
 name: Deploy auf GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, ccr-45c56cbd-m628bx]
   workflow_dispatch:
 
 permissions:
