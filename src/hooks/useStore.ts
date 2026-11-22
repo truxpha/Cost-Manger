@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AppData, Expense, IncomeItem } from '../types'
+import type { AppData, Debt, Expense, IncomeItem, OneOff } from '../types'
 import { createDemoData, createEmptyData } from '../lib/demo'
 import { loadData, saveData } from '../lib/storage'
 
@@ -33,6 +33,43 @@ export function useStore() {
     }))
   }, [])
 
+  const upsertOneOff = useCallback((item: OneOff) => {
+    setData((d) => ({
+      ...d,
+      oneOffs: d.oneOffs.some((o) => o.id === item.id)
+        ? d.oneOffs.map((o) => (o.id === item.id ? item : o))
+        : [...d.oneOffs, item],
+    }))
+  }, [])
+
+  const deleteOneOff = useCallback((id: string) => {
+    setData((d) => ({ ...d, oneOffs: d.oneOffs.filter((o) => o.id !== id) }))
+  }, [])
+
+  const upsertDebt = useCallback((debt: Debt) => {
+    setData((d) => ({
+      ...d,
+      debts: d.debts.some((x) => x.id === debt.id)
+        ? d.debts.map((x) => (x.id === debt.id ? debt : x))
+        : [...d.debts, debt],
+    }))
+  }, [])
+
+  const deleteDebt = useCallback((id: string) => {
+    setData((d) => ({ ...d, debts: d.debts.filter((x) => x.id !== id) }))
+  }, [])
+
+  /** Rückzahlung: Schuld verringern und optional als Einmalausgabe im Monat erfassen */
+  const payDebt = useCallback((id: string, amount: number, oneOff: OneOff | null) => {
+    setData((d) => ({
+      ...d,
+      debts: d.debts.map((x) =>
+        x.id === id ? { ...x, amount: Math.max(0, Math.round((x.amount - amount) * 100) / 100) } : x,
+      ),
+      oneOffs: oneOff ? [...d.oneOffs, oneOff] : d.oneOffs,
+    }))
+  }, [])
+
   const setIncome = useCallback((netIncome: number, extraIncome: IncomeItem[]) => {
     setData((d) => ({ ...d, netIncome, extraIncome }))
   }, [])
@@ -56,13 +93,32 @@ export function useStore() {
       upsertExpense,
       deleteExpense,
       toggleExpense,
+      upsertOneOff,
+      deleteOneOff,
+      upsertDebt,
+      deleteDebt,
+      payDebt,
       setIncome,
       setCurrency,
       replaceData,
       loadDemo,
       reset,
     }),
-    [upsertExpense, deleteExpense, toggleExpense, setIncome, setCurrency, replaceData, loadDemo, reset],
+    [
+      upsertExpense,
+      deleteExpense,
+      toggleExpense,
+      upsertOneOff,
+      deleteOneOff,
+      upsertDebt,
+      deleteDebt,
+      payDebt,
+      setIncome,
+      setCurrency,
+      replaceData,
+      loadDemo,
+      reset,
+    ],
   )
 
   return { data, actions }

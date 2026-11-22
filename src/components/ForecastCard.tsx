@@ -43,11 +43,12 @@ export function ForecastCard({ forecast, currency }: Props) {
   const sel = Math.min(Math.max(selected, startIdx), startIdx + n - 1) - startIdx
   const current = points[0]
   const point = points[sel]
-  const delta = point.free - current.free
+  // Vergleich mit dem regulären Monatsbudget heute (ohne Einmalausgaben)
+  const delta = point.left - current.free
   const finishedBy = events.filter((e) => e.freedIdx <= point.idx)
 
   const geo = useMemo(() => {
-    const values = points.map((p) => p.free)
+    const values = points.map((p) => p.left)
     const ticks = niceTicks(Math.min(...values), Math.max(...values))
     const lo = ticks[0]
     const hi = ticks[ticks.length - 1]
@@ -56,9 +57,9 @@ export function ForecastCard({ forecast, currency }: Props) {
     const band = innerW / points.length
     const x = (i: number) => PAD.left + i * band
     const y = (v: number) => PAD.top + innerH - ((v - lo) / (hi - lo || 1)) * innerH
-    let d = `M${x(0)},${y(points[0].free)}`
+    let d = `M${x(0)},${y(points[0].left)}`
     points.forEach((p, i) => {
-      if (i > 0) d += ` V${y(p.free)}`
+      if (i > 0) d += ` V${y(p.left)}`
       d += ` H${x(i + 1)}`
     })
     const years = points
@@ -89,14 +90,19 @@ export function ForecastCard({ forecast, currency }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-1.5 text-xs font-medium text-zinc-400">
           <TrendingUp className="size-3.5" />
-          Ausblick: frei verfügbar pro Monat
+          Ausblick: übrig pro Monat
         </h2>
       </div>
 
       <div className="mt-2 flex items-end justify-between gap-3">
         <div>
           <p className="text-xs text-zinc-500">{sel === 0 ? 'Diesen Monat' : `Im ${formatMonthIndex(point.idx)}`}</p>
-          <p className="text-2xl font-bold tracking-tight tabular-nums">{formatMoney(point.free, currency)}</p>
+          <p className="text-2xl font-bold tracking-tight tabular-nums">{formatMoney(point.left, currency)}</p>
+          {point.oneOff > 0 && (
+            <p className="text-[11px] text-zinc-500 tabular-nums">
+              inkl. {formatMoney(point.oneOff, currency)} Einmalausgaben
+            </p>
+          )}
         </div>
         {sel > 0 && (
           <span
@@ -119,7 +125,7 @@ export function ForecastCard({ forecast, currency }: Props) {
           aria-valuemin={0}
           aria-valuemax={n - 1}
           aria-valuenow={sel}
-          aria-valuetext={`${formatMonthIndex(point.idx)}: ${formatMoney(point.free, currency)} frei`}
+          aria-valuetext={`${formatMonthIndex(point.idx)}: ${formatMoney(point.left, currency)} übrig`}
           onKeyDown={onKey}
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId)
@@ -190,7 +196,7 @@ export function ForecastCard({ forecast, currency }: Props) {
               <circle
                 key={ev.expense.id}
                 cx={geo.x(i)}
-                cy={geo.y(points[i].free)}
+                cy={geo.y(points[i].left)}
                 r={4}
                 fill={LINE}
                 stroke={SURFACE}
@@ -199,7 +205,7 @@ export function ForecastCard({ forecast, currency }: Props) {
             )
           })}
 
-          <circle cx={cx} cy={geo.y(point.free)} r={5} fill="#fff" stroke={SURFACE} strokeWidth={2} />
+          <circle cx={cx} cy={geo.y(point.left)} r={5} fill="#fff" stroke={SURFACE} strokeWidth={2} />
         </svg>
       </div>
       <p className="mt-1 text-[11px] text-zinc-500">Tippe oder ziehe im Diagramm, um einen Monat zu wählen.</p>
@@ -254,7 +260,7 @@ export function ForecastCard({ forecast, currency }: Props) {
       ) : (
         <p className="mt-3 flex items-start gap-2 text-xs text-zinc-400">
           <Hourglass className="mt-px size-4 shrink-0 text-zinc-500" />
-          Lege bei Krediten oder Ratenzahlungen eine Laufzeit fest, dann siehst du hier, ab wann du mehr Geld
+          Lege bei Krediten, Klarna oder Ratenzahlungen eine Laufzeit fest, dann siehst du hier, ab wann du mehr Geld
           zur Verfügung hast.
         </p>
       )}

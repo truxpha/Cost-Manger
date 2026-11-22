@@ -5,7 +5,9 @@ import { formatMoney, formatPercent, splitMoney } from '../lib/format'
 interface Props {
   summary: Summary
   currency: string
+  monthName: string
   onEditIncome: () => void
+  onShowOneOffs: () => void
 }
 
 function quoteColor(quote: number): string {
@@ -14,7 +16,7 @@ function quoteColor(quote: number): string {
   return '#f87171'
 }
 
-export function HeroCard({ summary, currency, onEditIncome }: Props) {
+export function HeroCard({ summary, currency, monthName, onEditIncome, onShowOneOffs }: Props) {
   const { whole, cents } = splitMoney(summary.freeBudget)
   const negative = summary.freeBudget < 0
   const color = quoteColor(summary.quote)
@@ -41,6 +43,26 @@ export function HeroCard({ summary, currency, onEditIncome }: Props) {
         <span className="ml-2 text-2xl opacity-60">{currency}</span>
       </p>
       <p className="mt-1.5 text-xs text-zinc-500">pro Monat · Netto – Fixkosten</p>
+
+      {summary.oneOffThisMonth > 0 && (
+        <button
+          type="button"
+          onClick={onShowOneOffs}
+          className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl bg-white/[0.05] px-3 py-2 text-left transition hover:bg-white/[0.08]"
+        >
+          <span className="min-w-0 text-xs text-zinc-400">
+            Übrig im {monthName}
+            <span className="block text-[11px] text-zinc-500 tabular-nums">
+              nach {formatMoney(summary.oneOffThisMonth, currency)} Einmalausgaben
+            </span>
+          </span>
+          <span
+            className={`shrink-0 text-base font-semibold tabular-nums ${summary.leftThisMonth < 0 ? 'text-rose-400' : ''}`}
+          >
+            {formatMoney(summary.leftThisMonth, currency)}
+          </span>
+        </button>
+      )}
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         <button

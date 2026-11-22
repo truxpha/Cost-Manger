@@ -1,4 +1,4 @@
-import type { AppData, BillingCycle, Expense, IncomeItem } from '../types'
+import type { AppData, BillingCycle, Debt, Expense, IncomeItem, OneOff } from '../types'
 import { CATEGORY_IDS, getCategory } from './categories'
 import { createEmptyData } from './demo'
 import { createId } from './id'
@@ -60,6 +60,43 @@ function sanitizeIncome(raw: unknown): IncomeItem | null {
   }
 }
 
+const MONTH_KEY = /^\d{4}-(0[1-9]|1[0-2])$/
+
+function cleanNote(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, 200) : undefined
+}
+
+function sanitizeOneOff(raw: unknown): OneOff | null {
+  if (!isRecord(raw)) return null
+  const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+  if (!name || typeof raw.month !== 'string' || !MONTH_KEY.test(raw.month)) return null
+  const item: OneOff = {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : createId(),
+    name,
+    amount: Math.max(0, toNumber(raw.amount, 0)),
+    month: raw.month,
+  }
+  const note = cleanNote(raw.note)
+  if (note) item.note = note
+  return item
+}
+
+function sanitizeDebt(raw: unknown): Debt | null {
+  if (!isRecord(raw)) return null
+  const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+  if (!name) return null
+  const amount = Math.max(0, toNumber(raw.amount, 0))
+  const debt: Debt = {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : createId(),
+    name,
+    amount,
+    original: Math.max(amount, toNumber(raw.original, amount)),
+  }
+  const note = cleanNote(raw.note)
+  if (note) debt.note = note
+  return debt
+}
+
 /** Validiert unbekannte Daten (localStorage oder Import) und wirft bei ungültigem Format. */
 export function parseAppData(raw: unknown): AppData {
   if (!isRecord(raw) || !Array.isArray(raw.expenses)) {
@@ -77,6 +114,10 @@ export function parseAppData(raw: unknown): AppData {
       ? raw.extraIncome.map(sanitizeIncome).filter((i): i is IncomeItem => i !== null)
       : [],
     expenses: raw.expenses.map(sanitizeExpense).filter((e): e is Expense => e !== null),
+    oneOffs: Array.isArray(raw.oneOffs)
+      ? raw.oneOffs.map(sanitizeOneOff).filter((o): o is OneOff => o !== null)
+      : [],
+    debts: Array.isArray(raw.debts) ? raw.debts.map(sanitizeDebt).filter((d): d is Debt => d !== null) : [],
     settings: { currency },
   }
 }
@@ -145,6 +186,12 @@ export async function shareBackup(data: AppData): Promise<boolean> {
 
 const SNAPSHOT_KEY = 'fixkosten-tracker:snapshot'
 
+export function hasContent(data: AppData): boolean {
+  return (
+    data.expenses.length > 0 || data.extraIncome.length > 0 || data.oneOffs.length > 0 || data.debts.length > 0
+  )
+}
+
 export interface Snapshot {
   savedAt: string
   reason: string
@@ -153,7 +200,7 @@ export interface Snapshot {
 
 /** Merkt sich den Stand vor Zurücksetzen/Import/Demo, damit er wiederhergestellt werden kann. */
 export function saveSnapshot(data: AppData, reason: string): void {
-  if (data.expenses.length === 0 && data.extraIncome.length === 0) return
+  if (!hasContent(data)) return
   try {
     const snapshot: Snapshot = { savedAt: new Date().toISOString(), reason, data }
     localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot))

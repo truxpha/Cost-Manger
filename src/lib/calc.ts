@@ -44,6 +44,12 @@ export interface Summary {
   quote: number
   activeCount: number
   pausedCount: number
+  /** Einmalige Ausgaben im aktuellen Monat */
+  oneOffThisMonth: number
+  /** Frei verfügbar minus Einmalausgaben dieses Monats */
+  leftThisMonth: number
+  /** Summe offener Schulden (nicht eingerechnet) */
+  openDebts: number
 }
 
 export function computeSummary(data: AppData, now: Date): Summary {
@@ -53,6 +59,7 @@ export function computeSummary(data: AppData, now: Date): Summary {
   const totalIncome = data.netIncome + extraIncome
   const active = data.expenses.filter((e) => countsNow(e, now))
   const fixedCosts = active.reduce((sum, e) => sum + monthlyEquivalent(e), 0)
+  const oneOffThisMonth = oneOffTotal(data, currentMonthIndex(now))
   return {
     netIncome: data.netIncome,
     extraIncome,
@@ -62,6 +69,9 @@ export function computeSummary(data: AppData, now: Date): Summary {
     quote: totalIncome > 0 ? fixedCosts / totalIncome : fixedCosts > 0 ? 1 : 0,
     activeCount: active.length,
     pausedCount: data.expenses.filter((e) => !e.isActive && !isFinished(e, now)).length,
+    oneOffThisMonth,
+    leftThisMonth: totalIncome - fixedCosts - oneOffThisMonth,
+    openDebts: data.debts.reduce((sum, d) => sum + d.amount, 0),
   }
 }
 
@@ -234,7 +244,12 @@ export interface PayoffEvent {
 export interface ForecastPoint {
   idx: number
   fixed: number
+  /** Frei verfügbar aus Einkommen – Fixkosten (ohne Einmalausgaben) */
   free: number
+  /** Einmalausgaben in diesem Monat */
+  oneOff: number
+  /** Tatsächlich übrig: free – oneOff */
+  left: number
 }
 
 export interface Forecast {
@@ -267,12 +282,15 @@ export function computeForecast(data: AppData, now: Date): Forecast {
     .sort((a, b) => a.lastIdx - b.lastIdx || b.monthly - a.monthly)
 
   const lastFreed = events.length ? events[events.length - 1].freedIdx : startIdx
-  const endIdx = Math.min(startIdx + 120, Math.max(startIdx + 12, lastFreed + 3))
+  const lastOneOff = Math.max(startIdx, ...data.oneOffs.map((o) => parseMonthKey(o.month)))
+  const endIdx = Math.min(startIdx + 120, Math.max(startIdx + 12, lastFreed + 3, lastOneOff + 1))
 
   const points: ForecastPoint[] = []
   for (let idx = startIdx; idx <= endIdx; idx++) {
     const fixed = active.filter((e) => isRunning(e, idx)).reduce((s, e) => s + monthlyEquivalent(e), 0)
-    points.push({ idx, fixed, free: income - fixed })
+    const free = income - fixed
+    const oneOff = oneOffTotal(data, idx)
+    points.push({ idx, fixed, free, oneOff, left: free - oneOff })
   }
   return { startIdx, points, events }
 }
@@ -282,4 +300,10 @@ export function nextMonthDue(expenses: Expense[], now: Date): { month: number; t
   const first = new Date(now.getFullYear(), now.getMonth() + 1, 1)
   const t = computeTimeline(expenses, first)
   return { month: t.month, total: t.totalDue }
+}
+
+/** Summe der Einmalausgaben im Monat idx */
+export function oneOffTotal(data: Pick<AppData, 'oneOffs'>, idx: number): number {
+  const key = toMonthKey(idx)
+  return data.oneOffs.filter((o) => o.month === key).reduce((sum, o) => sum + o.amount, 0)
 }

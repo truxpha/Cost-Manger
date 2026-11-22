@@ -7,11 +7,13 @@ interface Props {
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
+  /** Fester Bereich unter dem Titel (z. B. Typ-Umschalter) */
+  toolbar?: ReactNode
 }
 
 const DISMISS_DISTANCE = 110
 
-export function BottomSheet({ title, onClose, children, footer }: Props) {
+export function BottomSheet({ title, onClose, children, footer, toolbar }: Props) {
   const titleId = useId()
   const drag = useRef<{ startY: number; startT: number } | null>(null)
   const [dragY, setDragY] = useState(0)
@@ -96,6 +98,7 @@ export function BottomSheet({ title, onClose, children, footer }: Props) {
             </button>
           </header>
         </div>
+        {toolbar && <div className="px-5 pb-3">{toolbar}</div>}
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-4">{children}</div>
         {footer && (
           <footer className="border-t border-white/5 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">

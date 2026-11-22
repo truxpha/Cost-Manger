@@ -1,4 +1,4 @@
-import { ArrowDownWideNarrow, CalendarDays, LayoutGrid, type LucideIcon } from 'lucide-react'
+import { ArrowDownWideNarrow, CalendarDays, LayoutGrid, Plus, Wallet, X, type LucideIcon } from 'lucide-react'
 import { useMemo } from 'react'
 import { countsNow, isFinished, monthlyEquivalent } from '../lib/calc'
 import { CATEGORIES, getCategory } from '../lib/categories'
@@ -12,6 +12,8 @@ interface Props {
   sort: SortMode
   onSortChange: (sort: SortMode) => void
   filter: Category | null
+  onClearFilter: () => void
+  onAdd: () => void
   onOpen: (expense: Expense) => void
   onToggle: (id: string) => void
   now: Date
@@ -30,7 +32,18 @@ interface Group {
   items: Expense[]
 }
 
-export function ExpenseList({ expenses, currency, sort, onSortChange, filter, onOpen, onToggle, now }: Props) {
+export function ExpenseList({
+  expenses,
+  currency,
+  sort,
+  onSortChange,
+  filter,
+  onClearFilter,
+  onAdd,
+  onOpen,
+  onToggle,
+  now,
+}: Props) {
   const groups = useMemo<Group[]>(() => {
     const visible = filter ? expenses.filter((e) => e.category === filter) : expenses
     const activeTotal = (items: Expense[]) =>
@@ -57,15 +70,38 @@ export function ExpenseList({ expenses, currency, sort, onSortChange, filter, on
     return [{ key: 'all', title: null, total: activeTotal(sorted), items: sorted }]
   }, [expenses, filter, sort, now])
 
+  if (expenses.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-white/15 p-5 text-center">
+        <Wallet className="mx-auto size-6 text-zinc-500" />
+        <p className="mt-2 text-sm text-zinc-300">Noch keine Fixkosten</p>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-white/[0.07] px-4 text-sm font-medium"
+        >
+          <Plus className="size-4" /> Fixkosten eintragen
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <section aria-label="Fixkosten">
+    <div>
       <div className="flex items-center justify-between gap-2 px-1">
-        <h2 className="text-base font-semibold tracking-tight">
-          {filter ? getCategory(filter).short : 'Fixkosten'}
-          <span className="ml-1.5 text-sm font-normal text-zinc-500">
-            {groups.reduce((n, g) => n + g.items.length, 0)}
-          </span>
-        </h2>
+        {filter ? (
+          <button
+            type="button"
+            onClick={onClearFilter}
+            className="flex h-9 min-w-0 items-center gap-1.5 rounded-full bg-white/[0.08] pr-2.5 pl-3 text-xs font-medium"
+            aria-label={`Filter ${getCategory(filter).short} aufheben`}
+          >
+            <span className="truncate">{getCategory(filter).short}</span>
+            <X className="size-3.5 shrink-0" />
+          </button>
+        ) : (
+          <span className="text-xs text-zinc-500">Sortieren</span>
+        )}
         <div
           role="radiogroup"
           aria-label="Sortierung"
@@ -113,6 +149,6 @@ export function ExpenseList({ expenses, currency, sort, onSortChange, filter, on
           </div>
         ))}
       </div>
-    </section>
+    </div>
   )
 }

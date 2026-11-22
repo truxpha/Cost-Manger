@@ -1,10 +1,9 @@
-import { Check, Trash2 } from 'lucide-react'
+import { Check, Info } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import {
   currentMonthIndex,
   endMonthForPayments,
   fromMonthIndex,
-  monthIndex,
   monthlyEquivalent,
   parseMonthKey,
   remainingPayments,
@@ -14,17 +13,19 @@ import { ACCENT_COLORS, CATEGORIES, getCategory } from '../lib/categories'
 import { amountToInput, CYCLE_LABEL, formatMoney, MONTHS, parseAmount, quarterMonths, MONTHS_SHORT } from '../lib/format'
 import { createId } from '../lib/id'
 import type { BillingCycle, Category, Expense } from '../types'
-import { BottomSheet } from './BottomSheet'
+import { cleanAmountInput, inputClass, labelClass } from '../lib/ui'
+import { MonthPicker } from './MonthPicker'
 import { Toggle } from './Toggle'
 
 interface Props {
   expense: Expense | null
   currency: string
   onSave: (expense: Expense) => void
-  onDelete: (id: string) => void
   onClose: () => void
   now: Date
 }
+
+export const EXPENSE_FORM_ID = 'expense-form'
 
 interface Preset {
   name: string
@@ -34,27 +35,57 @@ interface Preset {
   billingMonth?: number
   /** Befristet mit n Zahlungen */
   payments?: number
+  /** Kurzer Hinweis, was man eintragen sollte */
+  hint?: string
 }
 
 const PRESETS: Preset[] = [
-  { name: 'Miete', category: 'Wohnen', billingDay: 1 },
-  { name: 'Kredit', category: 'Kredite & Bildung', billingDay: 15 },
-  { name: 'BAföG', category: 'Kredite & Bildung', billingDay: 30, billingCycle: 'quarterly', billingMonth: 3 },
+  { name: 'Miete', category: 'Wohnen', billingDay: 1, hint: 'Warmmiete inkl. Nebenkosten-Vorauszahlung eintragen.' },
   { name: 'Strom', category: 'Wohnen', billingDay: 15 },
   { name: 'Internet', category: 'Verträge & Abos', billingDay: 5 },
+  {
+    name: 'PKV',
+    category: 'Versicherung & Gesundheit',
+    billingDay: 1,
+    hint: 'Vollen Monatsbeitrag inkl. Pflegeversicherung eintragen. Der Arbeitgeberzuschuss steckt schon in deinem Netto – nicht abziehen. Zieht dein Arbeitgeber die PKV direkt vom Gehalt ab (Firmenzahler), hier nicht eintragen.',
+  },
+  {
+    name: 'Kredit',
+    category: 'Kredite & Bildung',
+    billingDay: 15,
+    payments: 24,
+    hint: 'Monatliche Rate eintragen und unten die Laufzeit anpassen – dann siehst du im Ausblick, ab wann du mehr Geld hast.',
+  },
+  {
+    name: 'Klarna',
+    category: 'Kredite & Bildung',
+    billingDay: 1,
+    payments: 3,
+    hint: 'Ein Eintrag pro Klarna-Kauf: Rate eintragen und unten die Anzahl der offenen Raten.',
+  },
+  {
+    name: 'Kreditkarte',
+    category: 'Kredite & Bildung',
+    billingDay: 1,
+    hint: 'Nur eine feste Teilzahlungsrate oder die Jahresgebühr eintragen. Normale Einkäufe mit der Karte zahlst du aus deinem frei verfügbaren Budget – sonst wird doppelt gezählt.',
+  },
+  {
+    name: 'BAföG',
+    category: 'Kredite & Bildung',
+    billingDay: 30,
+    billingCycle: 'quarterly',
+    billingMonth: 3,
+    hint: 'Wird quartalsweise abgebucht: Betrag pro Quartal eintragen.',
+  },
   { name: 'Versicherung', category: 'Versicherung & Gesundheit', billingDay: 1 },
   { name: 'Gym', category: 'Verträge & Abos', billingDay: 1 },
-  { name: 'Ratenkauf', category: 'Sonstiges', billingDay: 1, payments: 12 },
+  { name: 'Ratenkauf', category: 'Kredite & Bildung', billingDay: 1, payments: 12 },
 ]
 
 const CYCLES: BillingCycle[] = ['monthly', 'quarterly', 'yearly']
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
 
-const inputClass =
-  'h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-base text-white placeholder:text-zinc-600 outline-none transition focus:border-emerald-400/60 focus:bg-white/[0.06]'
-const labelClass = 'mb-1.5 block text-xs font-medium text-zinc-400'
-
-export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now }: Props) {
+export function ExpenseForm({ expense, currency, onSave, onClose, now }: Props) {
   const isNew = expense === null
   const [name, setName] = useState(expense?.name ?? '')
   const [amountText, setAmountText] = useState(amountToInput(expense?.amount ?? 0))
@@ -74,15 +105,12 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
   )
   const [countText, setCountText] = useState('')
   const [countFocused, setCountFocused] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
   const amount = parseAmount(amountText)
   const schedule = { billingCycle: cycle, billingDay, billingMonth }
   const remainingCount = remainingPayments(schedule, endIdx, now)
-  const endParts = fromMonthIndex(endIdx)
-  const years = Array.from({ length: 41 }, (_, i) => fromMonthIndex(curIdx).year + i)
-  if (endParts.year < years[0]) years.unshift(endParts.year)
+  const activeHint = PRESETS.find((p) => p.name === name.trim())?.hint
 
   const changeCount = (value: string) => {
     const clean = value.replace(/\D/g, '').slice(0, 3)
@@ -104,8 +132,8 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
     setBillingDay(preset.billingDay)
     setCycle(preset.billingCycle ?? 'monthly')
     if (preset.billingMonth) setBillingMonth(preset.billingMonth)
+    setHasEnd(Boolean(preset.payments))
     if (preset.payments) {
-      setHasEnd(true)
       setEndIdx(
         endMonthForPayments(
           { billingCycle: preset.billingCycle ?? 'monthly', billingDay: preset.billingDay, billingMonth: preset.billingMonth },
@@ -142,45 +170,7 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
       : null
 
   return (
-    <BottomSheet
-      title={isNew ? 'Fixkosten hinzufügen' : 'Fixkosten bearbeiten'}
-      onClose={onClose}
-      footer={
-        <div className="flex gap-2">
-          {!isNew && (
-            <button
-              type="button"
-              onClick={() => {
-                if (confirmDelete) {
-                  onDelete(expense.id)
-                  onClose()
-                } else {
-                  setConfirmDelete(true)
-                }
-              }}
-              className={`flex h-12 items-center justify-center gap-2 rounded-2xl px-4 font-medium transition ${
-                confirmDelete
-                  ? 'bg-rose-500 text-white'
-                  : 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'
-              }`}
-              aria-label="Löschen"
-            >
-              <Trash2 className="size-5" />
-              {confirmDelete && <span>Wirklich löschen?</span>}
-            </button>
-          )}
-          <button
-            type="submit"
-            form="expense-form"
-            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-white font-semibold text-zinc-950 transition hover:bg-zinc-200 active:scale-[0.98]"
-          >
-            <Check className="size-5" />
-            {isNew ? 'Hinzufügen' : 'Speichern'}
-          </button>
-        </div>
-      }
-    >
-      <form id="expense-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form id={EXPENSE_FORM_ID} onSubmit={handleSubmit} className="space-y-5" noValidate>
         {isNew && (
           <div>
             <span className={labelClass}>Schnellauswahl</span>
@@ -209,6 +199,13 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
           </div>
         )}
 
+        {activeHint && (
+          <p className="animate-fade-in -mt-2 flex items-start gap-2 rounded-xl bg-sky-400/[0.07] px-3 py-2 text-xs leading-relaxed text-zinc-300">
+            <Info className="mt-0.5 size-3.5 shrink-0 text-sky-300" />
+            {activeHint}
+          </p>
+        )}
+
         <div>
           <label htmlFor="expense-name" className={labelClass}>
             Bezeichnung
@@ -235,7 +232,7 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
               id="expense-amount"
               className={`${inputClass} pr-12 text-2xl font-semibold tabular-nums ${amountError ? 'border-rose-500/70' : ''}`}
               value={amountText}
-              onChange={(e) => setAmountText(e.target.value.replace(/[^0-9.,]/g, ''))}
+              onChange={(e) => setAmountText(cleanAmountInput(e.target.value))}
               placeholder="0,00"
               inputMode="decimal"
               autoComplete="off"
@@ -385,32 +382,12 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
             <div className="space-y-3 border-t border-white/5 px-4 pt-3 pb-4">
               <div>
                 <span className={labelClass}>Letzte Zahlung im</span>
-                <div className="grid grid-cols-[1fr_7rem] gap-2">
-                  <select
-                    aria-label="Monat der letzten Zahlung"
-                    className={`${inputClass} appearance-none`}
-                    value={endParts.month}
-                    onChange={(e) => setEndIdx(monthIndex(endParts.year, Number(e.target.value)))}
-                  >
-                    {MONTHS.map((m, i) => (
-                      <option key={m} value={i + 1} className="bg-zinc-900">
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Jahr der letzten Zahlung"
-                    className={`${inputClass} appearance-none`}
-                    value={endParts.year}
-                    onChange={(e) => setEndIdx(monthIndex(Number(e.target.value), endParts.month))}
-                  >
-                    {years.map((y) => (
-                      <option key={y} value={y} className="bg-zinc-900">
-                        {y}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <MonthPicker
+                  value={endIdx}
+                  onChange={setEndIdx}
+                  fromYear={fromMonthIndex(curIdx).year}
+                  label="Letzte Zahlung"
+                />
               </div>
               <div>
                 <label htmlFor="expense-count" className={labelClass}>
@@ -468,6 +445,5 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now
           <Toggle checked={isActive} onChange={() => setIsActive((v) => !v)} label="Aktiv" />
         </div>
       </form>
-    </BottomSheet>
   )
 }

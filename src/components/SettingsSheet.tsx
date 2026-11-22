@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { formatDateTime, formatRelativeDate } from '../lib/format'
-import { canShareBackup, downloadBackup, importData, shareBackup, type Snapshot } from '../lib/storage'
+import { canShareBackup, downloadBackup, hasContent, importData, shareBackup, type Snapshot } from '../lib/storage'
 import type { AppData } from '../types'
 import { BottomSheet } from './BottomSheet'
 
@@ -112,7 +112,7 @@ export function SettingsSheet({
     }
   }
 
-  const hasData = data.expenses.length > 0 || data.extraIncome.length > 0
+  const hasData = hasContent(data)
 
   return (
     <BottomSheet title="Einstellungen" onClose={onClose}>
@@ -255,7 +255,7 @@ export function SettingsSheet({
           <ActionButton
             icon={<Sparkles className="size-4" />}
             title="Demo-Daten laden"
-            subtitle="Beispiel mit Miete, BAföG, PKV, Ratenkauf …"
+            subtitle="Beispiel mit Miete, PKV, Klarna, BAföG, Schulden …"
             onClick={() => {
               if (!hasData || window.confirm('Aktuelle Daten durch Demo-Daten ersetzen?')) {
                 onLoadDemo()
@@ -267,7 +267,7 @@ export function SettingsSheet({
             <ActionButton
               icon={<RotateCcw className="size-4" />}
               title="Alles zurücksetzen"
-              subtitle="Löscht alle Fixkosten und Einkommen"
+              subtitle="Löscht Fixkosten, Einmalausgaben, Schulden und Einkommen"
               danger
               onClick={() => {
                 if (window.confirm('Wirklich alle Daten löschen?')) {
@@ -279,7 +279,7 @@ export function SettingsSheet({
           )}
         </section>
 
-        <p className="text-center text-[11px] text-zinc-600">Fixkosten · lokal & offline · v1.2</p>
+        <p className="text-center text-[11px] text-zinc-600">Fixkosten · lokal & offline · v1.3</p>
       </div>
     </BottomSheet>
   )

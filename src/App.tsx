@@ -1,8 +1,8 @@
-import { DatabaseBackup, Eye, EyeOff, Plus, Settings, Smartphone, Sparkles, Wallet } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { ChevronRight, DatabaseBackup, Eye, EyeOff, HandCoins, Plus, Settings, Smartphone, Sparkles, Wallet } from 'lucide-react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { CategoryBreakdown } from './components/CategoryBreakdown'
-import { ExpenseList } from './components/ExpenseList'
-import { ExpenseSheet } from './components/ExpenseSheet'
+import { EntriesSection } from './components/EntriesSection'
+import { EntrySheet, type EntryTarget } from './components/EntrySheet'
 import { ForecastCard } from './components/ForecastCard'
 import { HeroCard } from './components/HeroCard'
 import { IncomeSheet } from './components/IncomeSheet'
@@ -15,19 +15,21 @@ import { useMeta } from './hooks/useMeta'
 import { useStore } from './hooks/useStore'
 import { useToday } from './hooks/useToday'
 import { computeBreakdown, computeForecast, computeSummary, computeTimeline, nextMonthDue } from './lib/calc'
-import { formatRelativeDate, MONTHS } from './lib/format'
-import { downloadBackup, loadSnapshot, saveSnapshot } from './lib/storage'
-import type { AppData, Category, Expense, SortMode } from './types'
+import { currentMonthIndex, toMonthKey } from './lib/calc'
+import { formatMoney, formatMoneyShort, formatRelativeDate, MONTHS } from './lib/format'
+import { createId } from './lib/id'
+import { downloadBackup, hasContent, loadSnapshot, saveSnapshot } from './lib/storage'
+import type { Category, Debt, EntryKind, Expense, SortMode } from './types'
 
 type Sheet =
-  | { type: 'expense'; expense: Expense | null }
+  | { type: 'entry'; target: EntryTarget }
   | { type: 'income' }
   | { type: 'settings' }
   | null
 
 const DAY = 86_400_000
 
-/** App-Verknüpfung (langes Drücken auf das App-Symbol): ?aktion=neu öffnet direkt „Hinzufügen“ */
+/** App-Verknüpfungen (App-Symbol lange drücken): ?aktion=neu bzw. ?aktion=einmalig */
 function consumeStartAction(): string | null {
   const params = new URLSearchParams(window.location.search)
   const action = params.get('aktion')
@@ -40,16 +42,20 @@ function consumeStartAction(): string | null {
 }
 const START_ACTION = consumeStartAction()
 
-const hasContent = (d: AppData) => d.expenses.length > 0 || d.extraIncome.length > 0
-
 export default function App() {
   const { data, actions } = useStore()
   const { meta, updateMeta } = useMeta()
   const install = useInstallPrompt()
   const now = useToday()
   const [sheet, setSheet] = useState<Sheet>(() =>
-    START_ACTION === 'neu' ? { type: 'expense', expense: null } : null,
+    START_ACTION === 'neu'
+      ? { type: 'entry', target: { kind: 'expense', item: null } }
+      : START_ACTION === 'einmalig'
+        ? { type: 'entry', target: { kind: 'oneoff', item: null } }
+        : null,
   )
+  const [tab, setTab] = useState<EntryKind>(START_ACTION === 'einmalig' ? 'oneoff' : 'expense')
+  const listRef = useRef<HTMLElement>(null)
   const [sort, setSort] = useState<SortMode>('category')
   const [filter, setFilter] = useState<Category | null>(null)
   const [toast, setToast] = useState<ToastData | null>(null)
@@ -66,7 +72,18 @@ export default function App() {
   const activeFilter = filter && breakdown.some((c) => c.category === filter) ? filter : null
 
   const closeSheet = useCallback(() => setSheet(null), [])
-  const openExpense = useCallback((expense: Expense | null) => setSheet({ type: 'expense', expense }), [])
+  const openEntry = useCallback((target: EntryTarget) => setSheet({ type: 'entry', target }), [])
+  const openExpense = useCallback((item: Expense | null) => openEntry({ kind: 'expense', item }), [openEntry])
+
+  const recentOneOffNames = useMemo(
+    () => [...new Set([...data.oneOffs].reverse().map((o) => o.name))].slice(0, 5),
+    [data.oneOffs],
+  )
+
+  const showTab = (kind: EntryKind) => {
+    setTab(kind)
+    requestAnimationFrame(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
   const dismissToast = useCallback(() => setToast(null), [])
   const showToast = (message: string, onUndo?: () => void) => setToast({ id: Date.now(), message, onUndo })
 
@@ -87,13 +104,46 @@ export default function App() {
     if (removed) showToast(`„${removed.name}“ gelöscht`, () => actions.upsertExpense(removed))
   }
 
+  const deleteOneOff = (id: string) => {
+    const removed = data.oneOffs.find((o) => o.id === id)
+    actions.deleteOneOff(id)
+    if (removed) showToast(`„${removed.name}“ gelöscht`, () => actions.upsertOneOff(removed))
+  }
+
+  const deleteDebt = (id: string) => {
+    const removed = data.debts.find((d) => d.id === id)
+    actions.deleteDebt(id)
+    if (removed) showToast(`Schuld „${removed.name}“ gelöscht`, () => actions.upsertDebt(removed))
+  }
+
+  const payDebt = (debt: Debt, amount: number, recordAsOneOff: boolean) => {
+    const previous = data
+    const oneOff = recordAsOneOff
+      ? {
+          id: createId(),
+          name: `Rückzahlung an ${debt.name}`,
+          amount,
+          month: toMonthKey(currentMonthIndex(now)),
+        }
+      : null
+    actions.payDebt(debt.id, amount, oneOff)
+    const settled = debt.amount - amount <= 0.004
+    showToast(
+      settled
+        ? `Schuld bei ${debt.name} beglichen`
+        : `${formatMoney(amount, currency)} an ${debt.name} zurückgezahlt`,
+      () => actions.replaceData(previous),
+    )
+  }
+
   const backupNow = () => {
     downloadBackup(data)
     updateMeta({ lastBackupAt: new Date().toISOString() })
     showToast('Backup gespeichert (Ordner „Downloads“)')
   }
 
-  const isEmpty = data.expenses.length === 0
+  const isEmpty = !hasContent(data)
+  const openDebts = data.debts.filter((d) => d.amount > 0)
   const nowMs = now.getTime()
   const showInstallHint = install.canInstall && !meta.installHintDismissed && !isEmpty
   const backupDue =
@@ -138,7 +188,33 @@ export default function App() {
       </header>
 
       <main className="mt-3 space-y-4">
-        <HeroCard summary={summary} currency={currency} onEditIncome={() => setSheet({ type: 'income' })} />
+        <HeroCard
+          summary={summary}
+          currency={currency}
+          monthName={MONTHS[now.getMonth()]}
+          onEditIncome={() => setSheet({ type: 'income' })}
+          onShowOneOffs={() => showTab('oneoff')}
+        />
+
+        {openDebts.length > 0 && (
+          <button
+            type="button"
+            onClick={() => showTab('debt')}
+            className="flex w-full items-center gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] px-3.5 py-2.5 text-left transition hover:bg-amber-300/[0.08]"
+          >
+            <HandCoins className="size-5 shrink-0 text-amber-300" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">
+                {openDebts.length === 1 ? `Offen bei ${openDebts[0].name}` : `${openDebts.length} offene Schulden`}
+              </span>
+              <span className="block text-[11px] text-zinc-500">nicht im Budget eingerechnet</span>
+            </span>
+            <span className="shrink-0 font-semibold tabular-nums">
+              {formatMoneyShort(summary.openDebts, currency)}
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-zinc-500" />
+          </button>
+        )}
 
         {showInstallHint ? (
           <NoticeCard
@@ -202,18 +278,28 @@ export default function App() {
               breakdown={breakdown}
               currency={currency}
               activeFilter={activeFilter}
-              onFilter={setFilter}
+              onFilter={(category) => {
+                setFilter(category)
+                if (category) setTab('expense')
+              }}
             />
             <ForecastCard forecast={forecast} currency={currency} />
-            <ExpenseList
-              expenses={data.expenses}
+            <EntriesSection
+              ref={listRef}
+              data={data}
               currency={currency}
+              now={now}
+              tab={tab}
+              onTabChange={setTab}
               sort={sort}
               onSortChange={setSort}
               filter={activeFilter}
-              onOpen={openExpense}
-              onToggle={actions.toggleExpense}
-              now={now}
+              onClearFilter={() => setFilter(null)}
+              onToggleExpense={actions.toggleExpense}
+              onOpenExpense={openExpense}
+              onOpenOneOff={(item) => openEntry({ kind: 'oneoff', item })}
+              onOpenDebt={(item) => openEntry({ kind: 'debt', item })}
+              onAdd={(kind) => openEntry({ kind, item: null } as EntryTarget)}
             />
           </>
         )}
@@ -221,24 +307,30 @@ export default function App() {
 
       <button
         type="button"
-        onClick={() => openExpense(null)}
+        onClick={() => openEntry({ kind: tab, item: null } as EntryTarget)}
         className="fixed right-[max(1.25rem,calc(50%-15rem))] bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex size-16 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition hover:bg-zinc-200 active:scale-90"
-        aria-label="Fixkosten hinzufügen"
+        aria-label="Eintrag hinzufügen"
       >
         <Plus className="size-7" strokeWidth={2.5} />
       </button>
 
       {toast && <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />}
 
-      {sheet?.type === 'expense' && (
-        <ExpenseSheet
-          key={sheet.expense?.id ?? 'new'}
-          expense={sheet.expense}
+      {sheet?.type === 'entry' && (
+        <EntrySheet
+          key={sheet.target.item?.id ?? `new-${sheet.target.kind}`}
+          target={sheet.target}
           currency={currency}
-          onSave={actions.upsertExpense}
-          onDelete={deleteExpense}
-          onClose={closeSheet}
           now={now}
+          recentOneOffNames={recentOneOffNames}
+          onSaveExpense={actions.upsertExpense}
+          onDeleteExpense={deleteExpense}
+          onSaveOneOff={actions.upsertOneOff}
+          onDeleteOneOff={deleteOneOff}
+          onSaveDebt={actions.upsertDebt}
+          onDeleteDebt={deleteDebt}
+          onPayDebt={payDebt}
+          onClose={closeSheet}
         />
       )}
       {sheet?.type === 'income' && (

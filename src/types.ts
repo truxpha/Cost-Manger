@@ -37,6 +37,28 @@ export interface IncomeItem {
   isActive: boolean
 }
 
+/** Einmalige Ausgabe, zählt nur im angegebenen Monat (z. B. „Geld an Mama“) */
+export interface OneOff {
+  id: string
+  name: string
+  amount: number
+  /** „YYYY-MM“ */
+  month: string
+  note?: string
+}
+
+/** Offene Schuld ohne feste Raten – wird nicht eingerechnet, nur gemerkt */
+export interface Debt {
+  id: string
+  /** Bei wem / wofür, z. B. „Mama“ */
+  name: string
+  /** Noch offener Betrag */
+  amount: number
+  /** Ursprünglicher Betrag (für den Fortschritt) */
+  original: number
+  note?: string
+}
+
 export interface Settings {
   currency: string
 }
@@ -46,7 +68,11 @@ export interface AppData {
   netIncome: number
   extraIncome: IncomeItem[]
   expenses: Expense[]
+  oneOffs: OneOff[]
+  debts: Debt[]
   settings: Settings
 }
+
+export type EntryKind = 'expense' | 'oneoff' | 'debt'
 
 export type SortMode = 'category' | 'day' | 'amount'
