@@ -1,15 +1,17 @@
 import type { AppData, Expense } from '../types'
+import { currentMonthIndex, toMonthKey } from './calc'
 import { getCategory } from './categories'
 import { createId } from './id'
 
-type DemoExpense = Omit<Expense, 'id' | 'color'> & { color?: string }
+type DemoExpense = Omit<Expense, 'id' | 'color'> & { color?: string; endInMonths?: number }
 
 const DEMO_EXPENSES: DemoExpense[] = [
   { name: 'Miete (warm)', amount: 1150, billingCycle: 'monthly', billingDay: 1, category: 'Wohnen', isActive: true },
   { name: 'Strom', amount: 85, billingCycle: 'monthly', billingDay: 15, category: 'Wohnen', isActive: true },
   { name: 'Rundfunkbeitrag', amount: 55.08, billingCycle: 'quarterly', billingDay: 15, billingMonth: 1, category: 'Wohnen', isActive: true },
-  { name: 'BAföG-Rückzahlung', amount: 390, billingCycle: 'quarterly', billingDay: 30, billingMonth: 3, category: 'Kredite & Bildung', isActive: true },
-  { name: 'Kredit', amount: 180, billingCycle: 'monthly', billingDay: 15, category: 'Kredite & Bildung', isActive: true },
+  { name: 'BAföG-Rückzahlung', amount: 390, billingCycle: 'quarterly', billingDay: 30, billingMonth: 3, category: 'Kredite & Bildung', isActive: true, endInMonths: 40 },
+  { name: 'Kredit', amount: 180, billingCycle: 'monthly', billingDay: 15, category: 'Kredite & Bildung', isActive: true, endInMonths: 18 },
+  { name: 'Fernseher (Ratenkauf)', amount: 45, billingCycle: 'monthly', billingDay: 10, category: 'Sonstiges', isActive: true, endInMonths: 5 },
   { name: 'PKV', amount: 420, billingCycle: 'monthly', billingDay: 1, category: 'Versicherung & Gesundheit', isActive: true },
   { name: 'Haftpflicht', amount: 65, billingCycle: 'yearly', billingDay: 1, billingMonth: 1, category: 'Versicherung & Gesundheit', isActive: true },
   { name: 'Hausrat', amount: 89, billingCycle: 'yearly', billingDay: 1, billingMonth: 4, category: 'Versicherung & Gesundheit', isActive: true },
@@ -23,6 +25,7 @@ const DEMO_EXPENSES: DemoExpense[] = [
 ]
 
 export function createDemoData(currency = '€'): AppData {
+  const cur = currentMonthIndex(new Date())
   return {
     version: 1,
     netIncome: 3900,
@@ -30,11 +33,11 @@ export function createDemoData(currency = '€'): AppData {
       { id: createId(), name: 'Nebenjob', amount: 250, isActive: true },
       { id: createId(), name: 'Gehaltserhöhung (Szenario)', amount: 200, isActive: false },
     ],
-    expenses: DEMO_EXPENSES.map((e) => ({
-      ...e,
-      id: createId(),
-      color: e.color ?? getCategory(e.category).color,
-    })),
+    expenses: DEMO_EXPENSES.map(({ endInMonths, ...e }) => {
+      const expense: Expense = { ...e, id: createId(), color: e.color ?? getCategory(e.category).color }
+      if (endInMonths !== undefined) expense.endMonth = toMonthKey(cur + endInMonths)
+      return expense
+    }),
     settings: { currency },
   }
 }

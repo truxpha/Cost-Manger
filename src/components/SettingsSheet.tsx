@@ -1,5 +1,5 @@
-import { Download, RotateCcw, Sparkles, Upload } from 'lucide-react'
-import { useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { Download, HardDrive, RotateCcw, Sparkles, Upload } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { exportData, importData } from '../lib/storage'
 import type { AppData } from '../types'
 import { BottomSheet } from './BottomSheet'
@@ -60,6 +60,12 @@ export function SettingsSheet({ data, onCurrencyChange, onImport, onLoadDemo, on
     CURRENCIES.includes(data.settings.currency) ? '' : data.settings.currency,
   )
 
+  const [persisted, setPersisted] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    navigator.storage?.persisted?.().then(setPersisted, () => setPersisted(null))
+  }, [])
+
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -114,9 +120,16 @@ export function SettingsSheet({ data, onCurrencyChange, onImport, onLoadDemo, on
 
         <section className="space-y-2">
           <h3 className="text-xs font-medium text-zinc-400">Datensicherung</h3>
-          <p className="text-xs text-zinc-500">
-            Alle Daten liegen nur lokal auf diesem Gerät. Exportiere regelmäßig ein Backup, z. B. vor einem
-            Handywechsel.
+          <p className="flex items-start gap-2 rounded-xl bg-white/[0.03] px-3 py-2 text-xs text-zinc-400">
+            <HardDrive className="mt-px size-4 shrink-0 text-zinc-500" />
+            <span>
+              Alle Daten liegen nur lokal in diesem Browser auf diesem Gerät – nichts wird hochgeladen.
+              {persisted === true && ' Dauerhafter Speicher ist aktiv.'}
+              {persisted === false &&
+                ' Tipp: Installiere die App auf dem Home-Bildschirm, damit der Browser die Daten nicht automatisch löscht.'}{' '}
+              Beim Löschen der Browserdaten oder Handywechsel gehen sie verloren – exportiere daher regelmäßig ein
+              Backup.
+            </span>
           </p>
           <ActionButton
             icon={<Download className="size-4" />}

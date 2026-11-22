@@ -3,13 +3,14 @@ import { useCallback, useMemo, useState } from 'react'
 import { CategoryBreakdown } from './components/CategoryBreakdown'
 import { ExpenseList } from './components/ExpenseList'
 import { ExpenseSheet } from './components/ExpenseSheet'
+import { ForecastCard } from './components/ForecastCard'
 import { HeroCard } from './components/HeroCard'
 import { IncomeSheet } from './components/IncomeSheet'
 import { SettingsSheet } from './components/SettingsSheet'
 import { UpcomingBar } from './components/UpcomingBar'
 import { useStore } from './hooks/useStore'
 import { useToday } from './hooks/useToday'
-import { computeBreakdown, computeSummary, computeTimeline } from './lib/calc'
+import { computeBreakdown, computeForecast, computeSummary, computeTimeline } from './lib/calc'
 import { MONTHS } from './lib/format'
 import type { Category, Expense, SortMode } from './types'
 
@@ -27,9 +28,10 @@ export default function App() {
   const [filter, setFilter] = useState<Category | null>(null)
 
   const currency = data.settings.currency
-  const summary = useMemo(() => computeSummary(data), [data])
+  const summary = useMemo(() => computeSummary(data, now), [data, now])
   const timeline = useMemo(() => computeTimeline(data.expenses, now), [data.expenses, now])
-  const breakdown = useMemo(() => computeBreakdown(data.expenses), [data.expenses])
+  const breakdown = useMemo(() => computeBreakdown(data.expenses, now), [data.expenses, now])
+  const forecast = useMemo(() => computeForecast(data, now), [data, now])
 
   // Filter zurücksetzen, wenn die Kategorie keine aktiven Posten mehr hat
   const activeFilter = filter && breakdown.some((c) => c.category === filter) ? filter : null
@@ -96,6 +98,7 @@ export default function App() {
               activeFilter={activeFilter}
               onFilter={setFilter}
             />
+            <ForecastCard forecast={forecast} currency={currency} />
             <ExpenseList
               expenses={data.expenses}
               currency={currency}
@@ -104,6 +107,7 @@ export default function App() {
               filter={activeFilter}
               onOpen={openExpense}
               onToggle={actions.toggleExpense}
+              now={now}
             />
           </>
         )}
@@ -126,6 +130,7 @@ export default function App() {
           onSave={actions.upsertExpense}
           onDelete={actions.deleteExpense}
           onClose={closeSheet}
+          now={now}
         />
       )}
       {sheet?.type === 'income' && (

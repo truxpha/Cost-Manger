@@ -93,3 +93,16 @@ export function billingLabel(expense: Expense): string {
       return `Jährlich am ${day} ${MONTHS[start - 1]}`
   }
 }
+
+/** Monatsindex (Jahr * 12 + Monat - 1) → „März 2027“ bzw. „Mär 2027“ */
+export function formatMonthIndex(idx: number, short = false): string {
+  const year = Math.floor(idx / 12)
+  const month = idx % 12
+  return `${(short ? MONTHS_SHORT : MONTHS)[month]} ${year}`
+}
+
+export function formatSignedMoney(value: number, currency: string): string {
+  const rounded = Math.round(value * 100) / 100
+  const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : '±'
+  return `${sign}${formatMoney(Math.abs(rounded), currency)}`
+}

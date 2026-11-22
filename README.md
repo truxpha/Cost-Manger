@@ -2,7 +2,7 @@
 
 Minimalistische, mobile-first Progressive Web App, um das **monatliche Einkommen** den **wiederkehrenden Fixkosten** (Miete, Kredite, BAföG, Strom, Versicherungen, Abos …) gegenüberzustellen – ohne tägliches Ausgaben-Tracking.
 
-- 100 % lokal (`localStorage`), kein Backend, kein Login
+- 100 % lokal (`localStorage` im Browser des Geräts), kein Backend, kein Login; die App bittet den Browser um dauerhaften Speicher
 - JSON-Export/-Import als Backup (z. B. beim Handywechsel)
 - Installierbar auf Android/iOS (Manifest, Icons, Offline-Service-Worker)
 - Dark-Mode-first, große Touch-Ziele (≥ 44 px)
@@ -15,6 +15,8 @@ Minimalistische, mobile-first Progressive Web App, um das **monatliche Einkommen
 | **Noch offen diesen Monat** | Tatsächliche Abbuchungen des laufenden Monats ab heute (inkl. quartalsweiser/jährlicher Posten im Fälligkeitsmonat) |
 | **Kategorien** | Gestapelter Balken + Legende; Antippen filtert die Liste |
 | **Fixkostenliste** | Gruppiert nach Kategorie oder sortiert nach Datum/Betrag; Schalter zum Pausieren („Was wäre wenn“) |
+| **Laufzeiten** | Optionales Ende (letzte Zahlung oder Anzahl verbleibender Raten) für Kredite, Ratenkäufe, BAföG … – mit Restbetrag; abbezahlte Posten zählen automatisch nicht mehr |
+| **Ausblick** | Diagramm des frei verfügbaren Budgets pro Monat für die kommenden Jahre; Monat antippen → Betrag, Differenz zu heute und was bis dahin abbezahlt ist |
 | **Schnell hinzufügen** | `+`-Button mit Vorlagen (Miete, Kredit, BAföG, Strom, Internet, Versicherung, Gym) |
 | **Einstellungen** | Währungssymbol, JSON-Export/-Import, Demo-Daten, Zurücksetzen |
 

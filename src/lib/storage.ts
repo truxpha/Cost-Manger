@@ -39,6 +39,9 @@ function sanitizeExpense(raw: unknown): Expense | null {
         : getCategory(category).color,
     isActive: raw.isActive !== false,
   }
+  if (typeof raw.endMonth === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(raw.endMonth)) {
+    expense.endMonth = raw.endMonth
+  }
   if (billingCycle !== 'monthly') {
     expense.billingMonth = clampInt(toNumber(raw.billingMonth, 1), 1, 12)
   }

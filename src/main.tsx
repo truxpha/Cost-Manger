@@ -9,6 +9,11 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+// Browser bitten, die lokalen Daten nicht automatisch zu löschen (z. B. bei Speicherknappheit)
+if (navigator.storage?.persist) {
+  navigator.storage.persist().catch(() => {})
+}
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {

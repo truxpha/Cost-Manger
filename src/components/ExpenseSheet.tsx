@@ -1,6 +1,15 @@
 import { Check, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { monthlyEquivalent } from '../lib/calc'
+import {
+  currentMonthIndex,
+  endMonthForPayments,
+  fromMonthIndex,
+  monthIndex,
+  monthlyEquivalent,
+  parseMonthKey,
+  remainingPayments,
+  toMonthKey,
+} from '../lib/calc'
 import { ACCENT_COLORS, CATEGORIES, getCategory } from '../lib/categories'
 import { amountToInput, CYCLE_LABEL, formatMoney, MONTHS, parseAmount, quarterMonths, MONTHS_SHORT } from '../lib/format'
 import { createId } from '../lib/id'
@@ -14,6 +23,7 @@ interface Props {
   onSave: (expense: Expense) => void
   onDelete: (id: string) => void
   onClose: () => void
+  now: Date
 }
 
 interface Preset {
@@ -22,6 +32,8 @@ interface Preset {
   billingDay: number
   billingCycle?: BillingCycle
   billingMonth?: number
+  /** Befristet mit n Zahlungen */
+  payments?: number
 }
 
 const PRESETS: Preset[] = [
@@ -32,6 +44,7 @@ const PRESETS: Preset[] = [
   { name: 'Internet', category: 'Verträge & Abos', billingDay: 5 },
   { name: 'Versicherung', category: 'Versicherung & Gesundheit', billingDay: 1 },
   { name: 'Gym', category: 'Verträge & Abos', billingDay: 1 },
+  { name: 'Ratenkauf', category: 'Sonstiges', billingDay: 1, payments: 12 },
 ]
 
 const CYCLES: BillingCycle[] = ['monthly', 'quarterly', 'yearly']
@@ -41,7 +54,7 @@ const inputClass =
   'h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-base text-white placeholder:text-zinc-600 outline-none transition focus:border-emerald-400/60 focus:bg-white/[0.06]'
 const labelClass = 'mb-1.5 block text-xs font-medium text-zinc-400'
 
-export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose }: Props) {
+export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose, now }: Props) {
   const isNew = expense === null
   const [name, setName] = useState(expense?.name ?? '')
   const [amountText, setAmountText] = useState(amountToInput(expense?.amount ?? 0))
@@ -54,10 +67,29 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose }: P
     expense ? expense.color !== getCategory(expense.category).color : false,
   )
   const [isActive, setIsActive] = useState(expense?.isActive ?? true)
+  const curIdx = currentMonthIndex(now)
+  const [hasEnd, setHasEnd] = useState(Boolean(expense?.endMonth))
+  const [endIdx, setEndIdx] = useState(() =>
+    expense?.endMonth ? parseMonthKey(expense.endMonth) : curIdx + 11,
+  )
+  const [countText, setCountText] = useState('')
+  const [countFocused, setCountFocused] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
   const amount = parseAmount(amountText)
+  const schedule = { billingCycle: cycle, billingDay, billingMonth }
+  const remainingCount = remainingPayments(schedule, endIdx, now)
+  const endParts = fromMonthIndex(endIdx)
+  const years = Array.from({ length: 41 }, (_, i) => fromMonthIndex(curIdx).year + i)
+  if (endParts.year < years[0]) years.unshift(endParts.year)
+
+  const changeCount = (value: string) => {
+    const clean = value.replace(/\D/g, '').slice(0, 3)
+    setCountText(clean)
+    const n = Number(clean)
+    if (n >= 1) setEndIdx(endMonthForPayments(schedule, n, now))
+  }
   const nameError = submitted && name.trim() === ''
   const amountError = submitted && (amount === null || amount <= 0)
 
@@ -72,6 +104,16 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose }: P
     setBillingDay(preset.billingDay)
     setCycle(preset.billingCycle ?? 'monthly')
     if (preset.billingMonth) setBillingMonth(preset.billingMonth)
+    if (preset.payments) {
+      setHasEnd(true)
+      setEndIdx(
+        endMonthForPayments(
+          { billingCycle: preset.billingCycle ?? 'monthly', billingDay: preset.billingDay, billingMonth: preset.billingMonth },
+          preset.payments,
+          now,
+        ),
+      )
+    }
   }
 
   const handleSubmit = (e: FormEvent) => {
@@ -89,6 +131,7 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose }: P
       isActive,
     }
     if (cycle !== 'monthly') result.billingMonth = billingMonth
+    if (hasEnd) result.endMonth = toMonthKey(endIdx)
     onSave(result)
     onClose()
   }
@@ -328,6 +371,93 @@ export function ExpenseSheet({ expense, currency, onSave, onDelete, onClose }: P
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="rounded-2xl bg-white/[0.04]">
+          <div className="flex items-center justify-between py-1 pr-1 pl-4">
+            <div>
+              <p className="text-sm font-medium">Befristete Laufzeit</p>
+              <p className="text-xs text-zinc-500">z. B. Kredit, Ratenkauf, Vertrag mit Enddatum</p>
+            </div>
+            <Toggle checked={hasEnd} onChange={() => setHasEnd((v) => !v)} label="Befristete Laufzeit" />
+          </div>
+          {hasEnd && (
+            <div className="space-y-3 border-t border-white/5 px-4 pt-3 pb-4">
+              <div>
+                <span className={labelClass}>Letzte Zahlung im</span>
+                <div className="grid grid-cols-[1fr_7rem] gap-2">
+                  <select
+                    aria-label="Monat der letzten Zahlung"
+                    className={`${inputClass} appearance-none`}
+                    value={endParts.month}
+                    onChange={(e) => setEndIdx(monthIndex(endParts.year, Number(e.target.value)))}
+                  >
+                    {MONTHS.map((m, i) => (
+                      <option key={m} value={i + 1} className="bg-zinc-900">
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Jahr der letzten Zahlung"
+                    className={`${inputClass} appearance-none`}
+                    value={endParts.year}
+                    onChange={(e) => setEndIdx(monthIndex(Number(e.target.value), endParts.month))}
+                  >
+                    {years.map((y) => (
+                      <option key={y} value={y} className="bg-zinc-900">
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="expense-count" className={labelClass}>
+                  oder: verbleibende Zahlungen
+                </label>
+                <input
+                  id="expense-count"
+                  className={`${inputClass} tabular-nums`}
+                  value={countFocused ? countText : String(remainingCount)}
+                  onFocus={() => {
+                    setCountText(String(remainingCount))
+                    setCountFocused(true)
+                  }}
+                  onBlur={() => setCountFocused(false)}
+                  onChange={(e) => changeCount(e.target.value)}
+                  inputMode="numeric"
+                  autoComplete="off"
+                />
+              </div>
+              <p className="text-xs text-zinc-400">
+                {remainingCount > 0 ? (
+                  <>
+                    Noch <span className="text-zinc-200 tabular-nums">{remainingCount}</span>{' '}
+                    {remainingCount === 1 ? 'Zahlung' : 'Zahlungen'}
+                    {amount ? (
+                      <>
+                        {' '}
+                        · Restbetrag{' '}
+                        <span className="text-zinc-200 tabular-nums">{formatMoney(remainingCount * amount, currency)}</span>
+                      </>
+                    ) : null}
+                    . Ab {MONTHS[fromMonthIndex(endIdx + 1).month - 1]} {fromMonthIndex(endIdx + 1).year} hast du{' '}
+                    {amount ? (
+                      <span className="text-emerald-300 tabular-nums">
+                        {formatMoney(monthlyEquivalent({ amount, billingCycle: cycle }), currency)}
+                      </span>
+                    ) : (
+                      'diesen Betrag'
+                    )}{' '}
+                    mehr pro Monat.
+                  </>
+                ) : (
+                  'Keine Zahlungen mehr offen – der Posten gilt als abbezahlt.'
+                )}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between rounded-2xl bg-white/[0.04] py-1 pr-1 pl-4">

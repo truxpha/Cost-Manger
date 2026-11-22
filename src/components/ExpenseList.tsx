@@ -1,6 +1,6 @@
 import { ArrowDownWideNarrow, CalendarDays, LayoutGrid, type LucideIcon } from 'lucide-react'
 import { useMemo } from 'react'
-import { monthlyEquivalent } from '../lib/calc'
+import { countsNow, isFinished, monthlyEquivalent } from '../lib/calc'
 import { CATEGORIES, getCategory } from '../lib/categories'
 import { formatMoney } from '../lib/format'
 import type { Category, Expense, SortMode } from '../types'
@@ -14,6 +14,7 @@ interface Props {
   filter: Category | null
   onOpen: (expense: Expense) => void
   onToggle: (id: string) => void
+  now: Date
 }
 
 const SORT_OPTIONS: { id: SortMode; label: string; icon: LucideIcon }[] = [
@@ -29,28 +30,32 @@ interface Group {
   items: Expense[]
 }
 
-export function ExpenseList({ expenses, currency, sort, onSortChange, filter, onOpen, onToggle }: Props) {
+export function ExpenseList({ expenses, currency, sort, onSortChange, filter, onOpen, onToggle, now }: Props) {
   const groups = useMemo<Group[]>(() => {
     const visible = filter ? expenses.filter((e) => e.category === filter) : expenses
     const activeTotal = (items: Expense[]) =>
-      items.filter((e) => e.isActive).reduce((s, e) => s + monthlyEquivalent(e), 0)
+      items.filter((e) => countsNow(e, now)).reduce((s, e) => s + monthlyEquivalent(e), 0)
+    // Abbezahlte Posten ans Ende
+    const byFinished = (a: Expense, b: Expense) => Number(isFinished(a, now)) - Number(isFinished(b, now))
 
     if (sort === 'category') {
       return CATEGORIES.map((meta) => {
         const items = visible
           .filter((e) => e.category === meta.id)
-          .sort((a, b) => monthlyEquivalent(b) - monthlyEquivalent(a))
+          .sort((a, b) => byFinished(a, b) || monthlyEquivalent(b) - monthlyEquivalent(a))
         return { key: meta.id, title: meta.id, total: activeTotal(items), items }
       }).filter((g) => g.items.length > 0)
     }
 
-    const sorted = [...visible].sort((a, b) =>
-      sort === 'day'
-        ? a.billingDay - b.billingDay || a.name.localeCompare(b.name, 'de')
-        : monthlyEquivalent(b) - monthlyEquivalent(a),
+    const sorted = [...visible].sort(
+      (a, b) =>
+        byFinished(a, b) ||
+        (sort === 'day'
+          ? a.billingDay - b.billingDay || a.name.localeCompare(b.name, 'de')
+          : monthlyEquivalent(b) - monthlyEquivalent(a)),
     )
     return [{ key: 'all', title: null, total: activeTotal(sorted), items: sorted }]
-  }, [expenses, filter, sort])
+  }, [expenses, filter, sort, now])
 
   return (
     <section aria-label="Fixkosten">
@@ -101,6 +106,7 @@ export function ExpenseList({ expenses, currency, sort, onSortChange, filter, on
                   currency={currency}
                   onOpen={onOpen}
                   onToggle={onToggle}
+                  now={now}
                 />
               ))}
             </ul>

@@ -20,6 +20,11 @@ export interface Expense {
    * Wird nur für die Zeitleiste „Noch offen diesen Monat“ benötigt.
    */
   billingMonth?: number
+  /**
+   * Optionales Laufzeitende als „YYYY-MM“: Monat der letzten Zahlung
+   * (z. B. Kredit oder Ratenkauf). Danach fällt der Posten weg.
+   */
+  endMonth?: string
   category: Category
   color: string
   isActive: boolean
