@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Fixkosten – Cashflow Tracker",
   "short_name": "Fixkosten",
-  "description": "Monatliches Einkommen vs. wiederkehrende Fixkosten – mit Laufzeiten und Ausblick. Lokal & offline.",
+  "description": "Monatliches Einkommen vs. Fixkosten, Schulden-Überblick und Tilgungsplan – lokal & offline.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "./",
@@ -70,7 +70,14 @@
       "sizes": "824x1678",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Übersicht: frei verfügbares Budget und Fixkosten"
+      "label": "Budget: was nach allen Fixkosten übrig bleibt"
+    },
+    {
+      "src": "screenshots/schulden.png",
+      "sizes": "824x1678",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Schulden: Überblick und Tilgungsplan"
     },
     {
       "src": "screenshots/ausblick.png",

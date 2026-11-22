@@ -52,6 +52,7 @@ npm install
 npm run dev        # Entwicklungsserver
 npm run build      # Typecheck + Produktions-Build nach dist/
 npm run lint       # oxlint (Warnungen = Fehler)
+npm run format     # Prettier (einheitliche Formatierung)
 npm run preview    # Build lokal testen (inkl. Service Worker)
 ```
 

@@ -515,14 +515,17 @@ export default function App() {
         )}
       </main>
 
-      <button
-        type="button"
-        onClick={() => openEntry({ kind: view === 'debts' ? 'debt' : tab, item: null })}
-        className="fixed right-[max(1.25rem,calc(50%-15rem))] bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex size-16 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition hover:bg-zinc-200 active:scale-90"
-        aria-label="Eintrag hinzufügen"
-      >
-        <Plus className="size-7" strokeWidth={2.5} />
-      </button>
+      {/* Im leeren Zustand führen die Schritte durch den Einstieg – dort würde der Button sie verdecken */}
+      {!isEmpty && (
+        <button
+          type="button"
+          onClick={() => openEntry({ kind: view === 'debts' ? 'debt' : tab, item: null })}
+          className="fixed right-[max(1.25rem,calc(50%-15rem))] bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex size-16 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_8px_30px_rgba(0,0,0,0.5)] transition hover:bg-zinc-200 active:scale-90"
+          aria-label="Eintrag hinzufügen"
+        >
+          <Plus className="size-7" strokeWidth={2.5} />
+        </button>
+      )}
 
       {toast && <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />}
 

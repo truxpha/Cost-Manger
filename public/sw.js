@@ -1,5 +1,5 @@
 /* Einfacher Offline-Service-Worker: Network-first für Seiten, Cache-first für Assets. */
-const CACHE = 'fixkosten-v3'
+const CACHE = 'fixkosten-v4'
 const PRECACHE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
